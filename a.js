@@ -114,22 +114,22 @@ function R20(obj){
         var r=0.5;
         var rp=0.5*1.25;
     }
-    if(a.value>1.6 && a.value<=2.44)
+    if(a.value>1.6 && a.value<=2.24)
     {
         var r=0.65;
         var rp=0.65*1.25;
     }
-    if(a.value>2.44 && a.value<=3.55)
+    if(a.value>2.24 && a.value<=3.55)
     {
         var r=0.8;
         var rp=0.8*1.25;
     }
-    if(a.value>3.55 && a.value<=6.0)
+    if(a.value>3.55 && a.value<=5.6)
     {
         var r=1.0;
         var rp=1.0*1.25;
     }
-    if(a.value>6.0 && a.value<=7.1)
+    if(a.value>5.6 && a.value<=7.1)
     {
         var r=1.2;
         var rp=1.2*1.25;
