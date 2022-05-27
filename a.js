@@ -103,23 +103,29 @@ $(document).ready(function(){
         if (this.value == 'c1'){
             var a=document.getElementById("a");
             var b=document.getElementById("b");
+            if(a.value!=''&&b.value!=''){
             var v=0.017241/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
             v1=Math.floor(v*100)/100;
             sanbian.value=v1;
+            }
         }
         if (this.value == 'c2'){
             var a=document.getElementById("a");
             var b=document.getElementById("b");
+            if(a.value!=''&&b.value!=''){
             var v=0.017391/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
             v1=Math.floor(v*100)/100;
             sanbian.value=v1;
+            }
         }
         if (this.value == 'c3'){
             var a=document.getElementById("a");
             var b=document.getElementById("b");
+            if(a.value!=''&&b.value!=''){
             var v=0.017544/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
             v1=Math.floor(v*100)/100;
             sanbian.value=v1;
+            }
         }
     });
 });
@@ -191,7 +197,6 @@ function R20(obj){
         var v=0.017241/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
         v1=Math.floor(v*100)/100;
         sanbian.value=v1;
-        console.log(v1)
     }
     if (getValue()=='c2'){
         var v=0.017391/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
