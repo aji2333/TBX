@@ -186,6 +186,7 @@ function R20(obj){
     v1=v1.toFixed(2);
     //var num=Math.floor(i2*100)/100;
     //var v3=v2/((parseFloat(a.value)*parseFloat(b.value)-num))*100000;
+	var v5=(0.0172/(parseFloat(a.value)*parseFloat(b.value)-Math.floor(i2*100)/100)*100000).toFixed(2);
     var v3=v2/((parseFloat(a.value)*parseFloat(b.value)-i2.toFixed(2)))*100000;
     v3=v3.toFixed(2);
     var v4=v2/((parseFloat(a.value)*parseFloat(b.value)-i2.toFixed(3)))*100000;
@@ -193,6 +194,7 @@ function R20(obj){
     g.value=v3;
     h.value=v1;
     gc.value=v4;
+	zbs.value=v5;
     if (getValue()=='c1'){
         var v=0.017241/((parseFloat(a.value)-p(a.value))*(parseFloat(b.value)-p(b.value))-Math.floor(ia(a.value)*10000)/10000)*100000;
         v1=Math.floor(v*100)/100;
@@ -215,6 +217,7 @@ function R20(obj){
 	g.value=''
 	gc.value=''
     sanbian.value='';
+	zbs.value='';
     }
 
 }
