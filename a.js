@@ -407,7 +407,7 @@ $(document).ready(function(){
     $("input").keyup(function(e){
 	
 	var str=$(this).val();
-	if(str==false)
+	if(str.length==0)
 	{
 	    $(this).val("");
 	}
