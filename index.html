@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>质检员专用</title>
+<script src="jquery-3.6.0.js"></script>
+</head>
+<body>
+<div>
+a：<input type="number" id="a" onkeyup="R20(this);Sbiao(this);Kl(this);" /><br>
+b：<input type="number" id="b" onkeyup="R20(this);Sbiao(this);Kl(this);"/><br>
+a标准值：<input type="number" id="c" onkeyup="Sbiao(this);Kl(this);"/><br>
+R20：<input type='number' id='h'/><br>
+正泰成套电阻率：<input type="radio" name="dianzu" value="0.0171">0.0171
+<input type="radio" name="dianzu" value="0.0172" checked>0.0172<br>
+正泰成套R20：<input type='number' id='g'/><br>
+正泰成套R20(不四舍五入)：<input type='number' id='zbs'/><br>
+正泰成套R20(3位)：<input type="number" id='gc'><br>
+<input type="radio" name="yingdu" value="c1" checked>C1
+<input type="radio" name="yingdu" value="c2">C2
+<input type="radio" name="yingdu" value="c3">C3<br>
+三变R20:<input type="number" id="sanbian"><br>
+温度：<input type="number" class="wendu" id="wendu1" onkeyup="jisuan(this);Sj(this)"/><br>
+测定阻值：<input type="number" id="shiji" onkeyup="jisuan(this);Sj(this);"/><br>
+实际阻值：<input type='number' id='zhi' onkeyup="Sj(this);" /><br>
+重量：<input type="number" id="weight" onkeyup="Sshi(this);Sj(this);klqd(this)"/><br>
+长度：<input type="number" id="length" onkeyup="Sshi(this);Sj(this);klqd(this)"/><br>
+S标：<input type='number' id='Sb' onkeyup="Kl(this);" /><br>
+一般S实：<input type='number' id='Ss' onkeyup="Sj(this);klqd(this)" /><br>
+一般阻值：<input type='number' id='Sjz' /><br>
+明珠S实：<input type='number' id='Ssm' onkeyup="Sj(this);" /><br>
+明珠阻值：<input type='number' id='Ssz' /><br>
+
+
+极值：<input type="number" id="ji1" onkeyup="Cl(this);"/><br>
+极值：<input type="number" id="ji2" onkeyup="Cl(this);"/><br>
+<button onclick="Ji(this)">计算</button>
+电阻不平衡率：<input type='number' id='bo' /><br>
+电阻不平衡率：<input type='number' id='bo1' /><br>
+<input type='text' id='hg' /><br>
+拉力：<input type='number' id="la" onkeyup="klqd(this);"/><br>
+抗拉强度：<input type="number" id="kl1" onkeyup="Kl(this);"/><br>
+测值：<input type="number" id="kl2" />KN<br>
+</div>
+</body>
+<link href="a.css" type="text/css" rel="stylesheet"/>
+<script type="text/javascript" src="a.js"></script>
+</html>
