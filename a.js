@@ -99,6 +99,10 @@ function qy(num,bit){
     return Math.round(num * (10**bit))/(10**bit)
 }
 
+function bqy(num,bit){
+    return Math.floor(num * (10**bit))/(10**bit)
+}
+
 function ztr20(v,a,b,i2){
     let r=v/((parseFloat(a.value)*parseFloat(b.value)-qy(i2,2)))*100000;
     r=qy(r,2);
@@ -260,7 +264,7 @@ function R20(obj){
 
 function wendu(obj){
 	var a=254.5/(234.5+parseFloat(obj));
-	return qy(a,5);
+	return bqy(a,5);
 }
 
 
