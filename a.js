@@ -263,8 +263,9 @@ function R20(obj){
 }
 
 function wendu(obj){
-	var a=254.5/(234.5+parseFloat(obj));
-	return bqy(a,5);
+	//var a=254.5/(234.5+parseFloat(obj));
+	let b=1/(1+0.00393*(parseFloat(obj)-20));
+	return qy(b,5);
 }
 
 
