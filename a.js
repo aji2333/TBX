@@ -164,6 +164,19 @@ $(document).ready(function(){
     });
 });
 
+$(document).ready(function(){
+    $('input[type=radio][name=jingdu]').change(function(){
+        if (this.value == 'gao'){
+            jisuan();
+            Sj();
+        }
+        if (this.value == 'di'){
+            jisuan();
+            Sj();
+        }
+    });
+});
+
 function getValue(){
     var radio = document.getElementsByName("yingdu");
     for (i=0;i<radio.length;i++){
@@ -175,6 +188,15 @@ function getValue(){
 
 function getValue1(){
     var radio = document.getElementsByName("dianzu");
+    for (i=0;i<radio.length;i++){
+        if (radio[i].checked){
+            return radio[i].value
+        }
+    }
+}
+
+function getValue2(){
+    var radio = document.getElementsByName("jingdu");
     for (i=0;i<radio.length;i++){
         if (radio[i].checked){
             return radio[i].value
@@ -263,10 +285,16 @@ function R20(obj){
 }
 
 function wendu(obj){
-	//var a=254.5/(234.5+parseFloat(obj));
-	let b=1/(1+0.00393*(parseFloat(obj)-20));
-	return qy(b,5);
+    if(getValue2()=='gao'){
+        let b=254.5/(234.5+parseFloat(obj));
+        return qy(b,5);
+    }
+    if(getValue2()=='di'){
+        let b=1/(1+0.00393*(parseFloat(obj)-20));
+        return qy(b,5);
+    }
 }
+
 
 
 function jisuan(obj)
