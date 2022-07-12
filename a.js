@@ -244,6 +244,10 @@ function R20(obj){
     {
         var b1=0.1
     }
+    if(b.value>16)
+    {
+        var b1=0.1
+    }
     
     let i1=ia(a.value);
     let i2=ib(a.value);
