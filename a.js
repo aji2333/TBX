@@ -291,11 +291,11 @@ function R20(obj){
 function wendu(obj){
     if(getValue2()=='gao'){
         let b=254.5/(234.5+parseFloat(obj));
-        return qy(b,5);
+        return bqy(b,5);
     }
     if(getValue2()=='di'){
         let b=1/(1+0.00393*(parseFloat(obj)-20));
-        return qy(b,5);
+        return bqy(b,5);
     }
 }
 
