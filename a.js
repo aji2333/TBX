@@ -116,9 +116,9 @@ function ztr20(v,a,b,i2){
     }
 
 function sbr20(v,a,b,i2){
-    let v6=(v/(parseFloat(a.value)*parseFloat(b.value)-bqy(i2,4)))*100000;
-    v6=qy(v6,2);
-    sb1.value=v6;
+    let vi=(v/(parseFloat(a.value)*parseFloat(b.value)-bqy(i2,4)))*100000;
+    vi=bqy(v6,2);
+    sb1.value=vi;
 
 }
 
@@ -282,7 +282,7 @@ function R20(obj){
     if (getValue1()=='0.0172'){
         ztr20(v2=0.0172,a,b,i2);
     }
-    sbr20(v2=0.017241,a,b,i1);
+    sbr20(0.017241,a,b,i1);
 
     }
     if(a.value==''||b.value=='')
