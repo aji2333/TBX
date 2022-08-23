@@ -113,6 +113,13 @@ function ztr20(v,a,b,i2){
     var v5=(v/(parseFloat(a.value)*parseFloat(b.value)-Math.floor(i2*100)/100)*100000);
     v5=qy(v5,2);
     zbs.value=v5;
+    }
+
+function sbr20(v,a,b,i2){
+    let v6=(v/(parseFloat(a.value)*parseFloat(b.value)-bqy(i2,4)))*100000;
+    v6=qy(v6,2);
+    sb1.value=v6;
+
 }
 
 $(document).ready(function(){
@@ -275,6 +282,7 @@ function R20(obj){
     if (getValue1()=='0.0172'){
         ztr20(v2=0.0172,a,b,i2);
     }
+    sbr20(v2=0.017241,a,b,i1);
 
     }
     if(a.value==''||b.value=='')
@@ -284,6 +292,7 @@ function R20(obj){
 	    gc.value=''
         sanbian.value='';
         zbs.value='';
+	    sb1.value='';
     }
 
 }
