@@ -117,7 +117,7 @@ function ztr20(v,a,b,i2){
 
 function sbr20(v,a,b,i2){
     let vi=(v/(parseFloat(a.value)*parseFloat(b.value)-bqy(i2,4)))*100000;
-    vi=bqy(v6,2);
+    vi=bqy(vi,2);
     sb1.value=vi;
 
 }
