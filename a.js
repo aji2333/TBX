@@ -454,12 +454,14 @@ function Ji(obj)
         {
 		[a,b]=[b,a]
 	}
+	if(a.value!=''&&b.value!=''){
 	let x = new Decimal(a.value)
     let y = new Decimal(b.value)
     let b1 = y.sub(x).div(y).mul(new Decimal('100'))
     let b2 = new Decimal('2').mul(y.sub(x).div(x.add(y))).mul(new Decimal('100'))
         bo.value=b1;
         bo1.value=b2;
+	}
 
 
         if(bo.value<1.5)
