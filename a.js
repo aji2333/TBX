@@ -529,4 +529,4 @@ var debounce = function(fn,t){
         }
 };
 
-const ji = debounce(Ji,500);
+const ji = debounce(Ji,300);
