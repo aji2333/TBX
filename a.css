@@ -14,7 +14,7 @@ div {
     margin: 0px auto;
     position: absolute;
     align-items: center;
-    display: flex;
+
     flex-direction: column;
 }
 html,body{
