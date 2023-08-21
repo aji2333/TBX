@@ -12,8 +12,7 @@ div {
     filter: invert(100%);
     height: 100%;
     margin: 0px auto;
-    position: relative;
-    padding:auto;
+    position: absolute;
     align-items: center;
     display: flex;
     flex-direction: column;
