@@ -530,3 +530,19 @@ var debounce = function(fn,t){
 };
 
 const ji = debounce(Ji,300);
+
+const ua = navigator.userAgent;
+const iOS = /iPad|iPhone|iPod/.test(ua);
+const input = document.querySelector('#input');
+
+input.addEventListener('focus', () => {
+  setTimeout(() => {
+    if (iOS) {
+      if (!/OS 11_[0-3]\D/.test(ua)) {
+        document.body.scrollTop = document.body.scrollHeight;   
+      }
+    } else {
+      input.scrollIntoView(false);
+    }
+  }, 300);
+});
