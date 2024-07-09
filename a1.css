@@ -1,0 +1,21 @@
+table {
+  border-collapse: collapse;
+  border: 2px solid rgb(200,200,200);
+  letter-spacing: 1px;
+  font-size: 1rem;
+}
+td {
+  text-align: right;
+}
+tr:nth-child(even) td {
+  background-color: rgb(250,250,250);
+}
+
+tr:nth-child(odd) td {
+  background-color: rgb(245,245,245);
+}
+
+input {
+    height: 1rem;
+    font-size: 1rem;
+}
