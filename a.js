@@ -430,6 +430,7 @@ function Sj(obj)
     {
         Sjz.value=z1*parseFloat(b.value);
 	    Sjz.value=Math.round(Sjz.value);
+	    Sjsz.value=z1*parseFloat(b.value);
     }
     if(a.value!=''&&c.value!='')
     {
