@@ -492,6 +492,101 @@ function Kl(obj)
 
 }
 
+function Kq(obj)
+{
+    var a=document.getElementById("a");
+    var biao=document.getElementById("c");
+    var la1=document.getElementById("la");
+    function Random(max, min) {
+        const arrayRange=(start,stop,step)=>
+        Array.from(
+        {length:(stop-start)/step+1},
+              (value,index)=>start+index*step
+        );
+        let arr = arrayRange(min,max,1);
+        let index=Math.floor((Math.random()*arr.length));
+    return arr[index];
+}
+    if(biao.value==''||a.value=='')
+        {
+            kl1.value=''
+        }
+    if(la1.value==''&&a.value!=''||biao.value!='')
+    {
+        if(biao.value=='')
+        {
+            if (a.value<=1)
+            {
+                kl1.value=Random(275,264);
+            }
+            if (a.value>1&&a.value<=2)
+            {
+                kl1.value=Random(263,255);
+            }
+            if (a.value>2&&a.value<=3)
+            {
+                kl1.value=Random(255,248);
+            }
+            if (a.value>3&&a.value<=4)
+            {
+                kl1.value=Random(249,244);
+            }
+            if (a.value>4&&a.value<=5)
+            {
+                kl1.value=Random(245,239);
+            }
+            if (a.value>5&&a.value<=6)
+            {
+                kl1.value=Random(241,237);
+            }
+            if (a.value>6&&a.value<=7)
+            {
+                kl1.value=Random(239,236);
+            }
+            if (a.value>7)
+            {
+                kl1.value=236;
+            }
+        }
+        else if (biao.value!='')
+        {
+            if (biao.value<=1.0)
+            {
+                kl1.value=Random(275,264);
+            }
+            if (biao.value>1&&biao.value<=2)
+            {
+                kl1.value=Random(263,255);
+            }
+            if (biao.value>2&&biao.value<=3)
+            {
+                kl1.value=Random(255,248);
+            }
+            if (biao.value>3&&biao.value<=4)
+            {
+                kl1.value=Random(249,244);
+            }
+            if (biao.value>4&&biao.value<=5)
+            {
+                kl1.value=Random(246,239);
+            }
+            if (biao.value>5&&biao.value<=6)
+            {
+                kl1.value=Random(241,237);
+            }
+            if (biao.value>6&&biao.value<=7)
+            {
+                kl1.value=Random(239,236);
+            }
+            if (biao.value>7)
+            {
+                kl1.value=236;
+            }
+        }
+        Kl()
+
+    }
+}
 
 $(document).ready(function(){
     $("input").keyup(function(e){
