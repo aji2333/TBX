@@ -627,3 +627,126 @@ var debounce = function(fn,t){
 };
 
 const ji = debounce(Ji,300);
+
+//与抗弯曲有关的代码段
+function calcMaxForce(){
+
+    let a = document.getElementById("ua").value;
+    let b = document.getElementById("ub").value;
+    let n = document.getElementById("ug").value;
+    let rp = document.getElementById("uy").value;
+   
+
+    const modulusData = [
+        {
+            test: n => n <= 23,
+            val_gt_230: 7.0,
+            val_180_to_230: 5.4,
+            val_lte_180: 4.4
+        },
+        {
+            test: n => n == 25,
+            val_gt_230: 6.6,
+            val_180_to_230: 5.1,
+            val_lte_180: 4.2
+        },
+        {
+            test: n => n == 27,
+            val_gt_230: 6.2,
+            val_180_to_230: 4.8,
+            val_lte_180: 4.0
+        },
+        {
+            test: n => n == 29,
+            val_gt_230: 5.8,
+            val_180_to_230: 4.3,
+            val_lte_180: 3.7
+        },
+        {
+            test: n => n == 31,
+            val_gt_230: 5.0,
+            val_180_to_230: 3.9,
+            val_lte_180: 3.2
+        },
+        {
+            test: n => n >= 33 && n <= 41,
+            val_gt_230: 4.6,
+            val_180_to_230: 3.5,
+            val_lte_180: 3.0
+        },
+        {
+            test: n => n >= 43 && n <= 51,
+            val_gt_230: 4.0,
+            val_180_to_230: 3.1,
+            val_lte_180: 2.8
+        },
+        {
+            test: n => n >= 53 && n <= 61,
+            val_gt_230: 3.6,
+            val_180_to_230: 2.9,
+            val_lte_180: 2.4
+        },
+        {
+            test: n => n >= 63 && n <= 71,
+            val_gt_230: 3.2,
+            val_180_to_230: 2.6,
+            val_lte_180: 2.0
+        },
+        {
+            test: n => n >= 73,
+            val_gt_230: 2.9,
+            val_180_to_230: 2.2,
+            val_lte_180: 1.8
+        },
+    ];
+    function getModulus(n,rp){
+        const row = modulusData.find(entry => entry.test(n));
+        if (!row){
+            return null;
+        }
+        if (rp > 230){
+            return row.val_gt_230;
+        } else if (rp > 180){
+            return row.val_180_to_230;
+        } else {
+            return row.val_lte_180;
+        }
+    }
+    const delta = getModulus(n,rp);
+    if (delta === null){
+        alert("无法计算")
+        return;
+    }
+    const g = 9.81;
+    const kua = n < 31 ? 150 : 300
+    const maxForce = delta * parseFloat(a) * parseFloat(a) * parseFloat(b) * parseFloat(n) * parseFloat(n) * g / kua;
+
+    uli.value = maxForce;
+}
+
+const inputs =[
+   document.getElementById('ua'),
+   document.getElementById('ub'),
+   document.getElementById('ug'),
+   document.getElementById('uy'),
+];
+
+const calculateBtn = document.getElementById('calculateBtn');
+
+function validateAllInputs(){
+    let allValid = true;
+
+    inputs.forEach(input =>{
+        const value = input.value.trim();
+        const isValid = value !== '' && !isNaN(value);
+        if (!isValid) allValid = false;
+    });
+
+    calculateBtn.disabled = !allValid;
+    return allValid;
+}
+
+inputs.forEach(input => {
+    input.addEventListener('input', validateAllInputs);
+});
+validateAllInputs();
