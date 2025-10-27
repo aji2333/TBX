@@ -44,6 +44,14 @@
 	<div>拉力：<input type='number' id="la" onkeyup="klqd(this);"/></div>
 	<div>抗拉强度：<input type="number" id="kl1" onkeyup="Kl(this);"/></div>
 	<div>测值：<input type="number" id="kl2" class='yin' />KN</div>
+
+	<!-- 最大力 -->
+	<div>a面漆包导体：<input type="number" id="ua"/></div>
+	<div>b面漆包导体：<input type="number" id="ub"/></div>
+	<div>根数：<input type="number" id="ug"/></div>
+	<div>要求硬度：<input type="number" id="uy"/></div>
+	<button id="calculateBtn" disabled onclick="calcMaxForce()">计算</button><br>
+	<div>最大力：<input type="number" id="uli"/></div>
 </div>
 </body>
 <link href="a.css" type="text/css" rel="stylesheet"/>
