@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码生成器 - 电磁线标签</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- QR Code library (local) -->
+    <script src="qrcode.min.js"></script>
+</head>
+<body>
+<div class="zoom-overlay" id="zoomOverlay" onclick="toggleBatchZoom()"></div>
+
+<header>
+    <span style="font-size:1.5rem;">▦</span>
+    <h1>电磁线标签 — 二维码生成器</h1>
+    <span style="margin-left:auto; font-size:0.8rem; opacity:0.7;">🔒 锁定字段表示该字段不随批次变化</span>
+</header>
+
+<div class="app">
+    <!-- LEFT: FORM -->
+    <div class="form-panel">
+
+        <div class="card">
+            <div class="card-title">基本信息</div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_pihao">批号</label>
+                    <input type="text" id="f_pihao" placeholder="例: SM2026050007" value="SM2026050007">
+                </div>
+                <button class="lock-btn" id="lock_pihao" onclick="toggleLock('pihao')" title="锁定/解锁">🔓</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_chanpin">产品名称 <span class="fixed-badge">固定</span></label>
+                    <input type="text" id="f_chanpin" class="is-fixed" value="无纺布膜包铜线" readonly>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_xinghao">型号</label>
+                    <input type="text" id="f_xinghao" placeholder="例: NMB-35/155" value="NMB-35/155" oninput="onXingHaoInput(this.value)">
+                </div>
+                <button class="lock-btn" id="lock_xinghao" onclick="toggleLock('xinghao')" title="锁定/解锁">🔓</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_guige">规格</label>
+                    <input type="text" id="f_guige" placeholder="例: 2.8*5" value="2.8*5">
+                </div>
+                <button class="lock-btn" id="lock_guige" onclick="toggleLock('guige')" title="锁定/解锁">🔓</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">生产信息</div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_panpinhao">盘品号</label>
+                    <input type="text" id="f_panpinhao" placeholder="例: W2604YC9438-442" value="W2604YC9438-442">
+                </div>
+                <button class="lock-btn" id="lock_panpinhao" onclick="toggleLock('panpinhao')" title="锁定/解锁">🔓</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_maochong">毛重 (kg)</label>
+                    <input type="text" id="f_maochong" placeholder="例: 193.8" value="193.8">
+                </div>
+                <button class="lock-btn" id="lock_maochong" onclick="toggleLock('maochong')" title="锁定/解锁">🔓</button>
+
+                <div class="field-group">
+                    <label for="f_jingzhong">净重 (kg)</label>
+                    <input type="text" id="f_jingzhong" placeholder="例: 185.7" value="185.7">
+                </div>
+                <button class="lock-btn" id="lock_jingzhong" onclick="toggleLock('jingzhong')" title="锁定/解锁">🔓</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="f_riqi">生产日期</label>
+                    <input type="text" id="f_riqi" placeholder="例: 20260507" value="20260507">
+                </div>
+                <button class="lock-btn" id="lock_riqi" onclick="toggleLock('riqi')" title="锁定/解锁">🔓</button>
+
+                <div class="field-group">
+                    <label for="f_jianyanyuan">产地 <span class="fixed-badge">固定</span></label>
+                    <input type="text" id="f_jianyanyuan" value="三门">
+                </div>
+                <button class="lock-btn" id="lock_jianyanyuan" onclick="toggleLock('jianyanyuan')" title="锁定/解锁">🔒</button>
+            </div>
+        </div>
+
+        <div class="action-row">
+            <button class="btn btn-primary" onclick="generateQR()">▦ 生成二维码</button>
+            <button class="btn btn-secondary" onclick="clearUnlocked()">↺ 清空可变字段</button>
+            <button class="btn btn-secondary" onclick="importLastSession()" title="可选择导入任意其他标签页的数据">📥 导入其他标签页</button>
+        </div>
+
+        <div class="card" id="batchCard">
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>📋 批量生成</span>
+                <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; border-color:var(--primary); color:var(--primary);" onclick="toggleBatchZoom()" id="zoomBtn">🔍 全屏放大编辑</button>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+                解锁字段支持批量递增；锁定字段在表格中为只读，确保数据严谨。
+            </p>
+            <div id="batchTableWrap" style="overflow-x:auto; margin-bottom:10px; border:1px solid var(--border); border-radius:4px;">
+                <table id="batchTable" style="width:100%; min-width:800px; border-collapse:collapse; font-size:0.82rem;">
+                    <thead id="batchTableHead"></thead>
+                    <tbody id="batchTableBody"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-secondary" style="flex:1; min-width:80px; margin-bottom:0; font-size:0.82rem;" onclick="addBatchRow()">＋ 添加行</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:120px; margin-bottom:0; font-size:0.82rem; color:#2563eb; border-color:#bfdbfe; background:#eff6ff;" onclick="autoGenerate()">✨ 智能递增生成</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:80px; margin-bottom:0; font-size:0.82rem;" onclick="clearBatchTable()">✕ 清空</button>
+                <button class="btn btn-primary"   style="flex:2; min-width:140px; margin-bottom:0;" onclick="oneClickGenerate()">⚡ 一键生成并预览</button>
+            </div>
+            <div id="batchNav" style="display:none; margin-top:12px; background:var(--surface2); border-radius:8px; padding:10px; border:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:8px; justify-content:space-between;">
+                    <button class="btn btn-secondary" style="width:40px; margin-bottom:0; padding:6px;" onclick="navBatch(-1)">‹</button>
+                    <span id="batchNavLabel" style="font-size:0.85rem; color:var(--text-muted); flex:1; text-align:center;">第 1 / 1 条</span>
+                    <button class="btn btn-secondary" style="width:40px; margin-bottom:0; padding:6px;" onclick="navBatch(1)">›</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: PREVIEW -->
+    <div class="preview-panel">
+
+        <div class="qr-preview-card">
+            <div class="card-title" style="width:100%; margin-bottom:8px;">预览</div>
+            <div class="qr-wrap" id="qrWrap">
+                <div class="qr-placeholder">
+                    <div class="icon">▦</div>
+                    <div>填写信息后生成</div>
+                </div>
+            </div>
+            <div class="qr-content-preview" id="qrTextPreview">
+                —
+            </div>
+            <div style="display:flex; gap:8px; width:100%;">
+                <button class="btn btn-success" style="flex:1;" onclick="downloadQR()">⬇ 下载图片</button>
+                <button class="btn btn-secondary" onclick="window.print()">🖨 打印</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">生成历史</div>
+            <div class="history-list" id="historyList">
+                <div class="empty-tip">暂无记录</div>
+            </div>
+            <div style="margin-top:10px;">
+                <button class="btn btn-secondary" style="width:100%; font-size:0.8rem; padding:8px;" onclick="clearHistory()">清空历史</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
