@@ -297,15 +297,18 @@ function showImportPicker(ids, list) {
     const backdrop = document.createElement('div');
     backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:3000;display:flex;align-items:center;justify-content:center;';
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:#fff;border-radius:10px;padding:24px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+    modal.style.cssText = 'background:#fff;border-radius:10px;padding:24px;max-width:420px;width:90%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
     const title = document.createElement('h3');
     title.textContent = '选择要导入的标签页';
-    title.style.cssText = 'margin:0 0 16px;font-size:1rem;color:#1e293b;';
+    title.style.cssText = 'margin:0 0 16px;font-size:1rem;color:#1e293b;flex-shrink:0;';
     modal.appendChild(title);
     const p = document.createElement('p');
     p.textContent = '数据来源：各标签页最近一次保存的状态';
-    p.style.cssText = 'font-size:0.8rem;color:#64748b;margin-bottom:12px;';
+    p.style.cssText = 'font-size:0.8rem;color:#64748b;margin-bottom:12px;flex-shrink:0;';
     modal.appendChild(p);
+
+    const listContainer = document.createElement('div');
+    listContainer.style.cssText = 'overflow-y:auto;flex:1;min-height:0;padding-bottom:4px;';
     
     ids.forEach(id => {
         const data = JSON.parse(localStorage.getItem('qrTab_' + id) || '{}');
@@ -322,12 +325,13 @@ function showImportPicker(ids, list) {
             backdrop.remove();
             doImportSession(id);
         };
-        modal.appendChild(btn);
+        listContainer.appendChild(btn);
     });
+    modal.appendChild(listContainer);
     
     const cancel = document.createElement('button');
     cancel.textContent = '取消';
-    cancel.style.cssText = 'display:block;width:100%;margin-top:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;color:#64748b;';
+    cancel.style.cssText = 'display:block;width:100%;margin-top:12px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;color:#64748b;flex-shrink:0;';
     cancel.onclick = () => backdrop.remove();
     modal.appendChild(cancel);
     
