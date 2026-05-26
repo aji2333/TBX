@@ -254,6 +254,7 @@ function clearUnlocked() {
 function importLastSession() {
     const list = JSON.parse(localStorage.getItem('qrTabList') || '{}');
     const otherIds = Object.keys(list).filter(id => id !== tabId && localStorage.getItem('qrTab_' + id));
+    otherIds.sort((a, b) => (list[b] || 0) - (list[a] || 0));
     if (otherIds.length === 0) {
         alert('没有找到其他标签页的数据');
         return;
