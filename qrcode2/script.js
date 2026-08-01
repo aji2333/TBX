@@ -1,6 +1,5 @@
 // ===== 默认字段定义 =====
 const DEFAULT_FIELD_DEFS = [
-    { key: 'chanpin', label: '产品', defaultValue: '三变科技股份有限公司 110kV 电力变压器', locked: true, increment: false, qrField: true },
     { key: 'pihao', label: '批号', defaultValue: '', locked: false, increment: true, qrField: true },
     { key: 'xinghao', label: '型号', defaultValue: '', locked: false, increment: false, qrField: true },
     { key: 'guige', label: '规格', defaultValue: '', locked: false, increment: false, qrField: true },
