@@ -1,5 +1,6 @@
 // ===== 默认字段定义 =====
 const DEFAULT_FIELD_DEFS = [
+    { key: 'chanpin', label: '产品', defaultValue: '三变科技股份有限公司 110kV 电力变压器', locked: true, increment: false, qrField: true },
     { key: 'pihao', label: '批号', defaultValue: '', locked: false, increment: true, qrField: true },
     { key: 'xinghao', label: '型号', defaultValue: '', locked: false, increment: false, qrField: true },
     { key: 'guige', label: '规格', defaultValue: '', locked: false, increment: false, qrField: true },
@@ -219,7 +220,7 @@ function buildEntryForm() {
         '<label>' + (fd.label || fd.key || '(未命名)') +
         (fd.locked ? '<span class="fixed-badge">锁定</span>' : '') + '</label>' +
         '<input type="text" id="ef_' + i + '" value="' + escHtml(fd.defaultValue) + '" ' +
-        'placeholder="' + escHtml(fd.label || fd.key) + '">' +
+        'placeholder="' + escHtml(fd.label || fd.key) + '" oninput="updateDataPreview()">' +
         '</div></div>'
     ).join('');
     if (fieldDefs.length === 0) {
