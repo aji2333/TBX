@@ -1,0 +1,106 @@
+[
+  {
+    "key": "xinghao",
+    "label": "型号",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "guige",
+    "label": "规格",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "maochong",
+    "label": "毛重",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "jingzhong",
+    "label": "净重",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "changdu",
+    "label": "长度",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "gonghao",
+    "label": "生产工号",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "jianyanyuan",
+    "label": "检验员",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "riqi",
+    "label": "生产日期",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "gongzuoling",
+    "label": "工作令",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": true
+  },
+  {
+    "key": "hetong",
+    "label": "合同号",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": false
+  },
+  {
+    "key": "po",
+    "label": "po号",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": true
+  },
+  {
+    "key": "hang",
+    "label": "行号",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": true
+  },
+  {
+    "key": "wuliao",
+    "label": "物料编码",
+    "defaultValue": "",
+    "locked": false,
+    "increment": false,
+    "qrField": true
+  }
+]

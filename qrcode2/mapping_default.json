@@ -1,0 +1,74 @@
+[
+  {
+    "key": "xinghao",
+    "templateVar": "型号",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "guige",
+    "templateVar": "规格",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "maochong",
+    "templateVar": "毛重",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "jingzhong",
+    "templateVar": "净重",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "changdu",
+    "templateVar": "长度",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "riqi",
+    "templateVar": "生产日期",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "jianyanyuan",
+    "templateVar": "检验员",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "qrdata",
+    "templateVar": "二维码",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "gonghao",
+    "templateVar": "生产工号",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "hetong",
+    "templateVar": "合同号",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "gongzuoling",
+    "templateVar": "工作令",
+    "value": "",
+    "source": "form"
+  },
+  {
+    "key": "po",
+    "templateVar": "PO号",
+    "value": "",
+    "source": "form"
+  }
+]

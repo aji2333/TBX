@@ -1,30 +1,95 @@
 // ===== 默认字段定义 =====
-const DEFAULT_FIELD_DEFS = [
-    { key: 'pihao', label: '批号', defaultValue: '', locked: false, increment: true, qrField: true },
-    { key: 'xinghao', label: '型号', defaultValue: '', locked: false, increment: false, qrField: true },
-    { key: 'guige', label: '规格', defaultValue: '', locked: false, increment: false, qrField: true },
-    { key: 'panpinhao', label: '盘品号', defaultValue: '', locked: false, increment: true, qrField: true },
-    { key: 'maochong', label: '毛重', defaultValue: '', locked: false, increment: false, qrField: false },
-    { key: 'jingzhong', label: '净重', defaultValue: '', locked: false, increment: false, qrField: false },
-    { key: 'changdu', label: '长度', defaultValue: '', locked: false, increment: false, qrField: false },
-    { key: 'riqi', label: '日期', defaultValue: '', locked: false, increment: false, qrField: false },
-    { key: 'jianyanyuan', label: '检验员', defaultValue: '', locked: true, increment: false, qrField: false }
-];
+const DEFAULT_FIELD_DEFS = [];
+const DEFAULT_QR_FORMAT = '';
 
-const DEFAULT_QR_FORMAT = '{pihao}；{chanpin}；{xinghao}；{guige}；{panpinhao}；毛重:{maochong}kg；净重:{jingzhong}kg；{riqi}';
+function loadDefaultFromFile(filename) {
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', filename, false);
+        xhr.send();
+        if (xhr.status === 200 || xhr.status === 0) return xhr.responseText;
+    } catch (e) { }
+    return null;
+}
+
+async function fetchDefaultFile(filename) {
+    try {
+        var resp = await fetch(filename);
+        if (resp.ok) return await resp.text();
+    } catch (e) { }
+    return loadDefaultFromFile(filename);
+}
+
+// 启动时从文件加载的默认值缓存
+var _fileDefaultDefs = [];
+var _fileDefaultQrFormat = '';
+var _fileDefaultMapping = [];
+
+async function loadAllDefaults() {
+    var raw = await fetchDefaultFile('field_defs_default.json');
+    if (raw) {
+        try {
+            _fileDefaultDefs = JSON.parse(raw);
+            if (!Array.isArray(_fileDefaultDefs)) _fileDefaultDefs = [];
+        } catch (e) { _fileDefaultDefs = []; }
+    }
+    raw = await fetchDefaultFile('qr_format_default.txt');
+    if (raw !== null) _fileDefaultQrFormat = raw.trim();
+    raw = await fetchDefaultFile('mapping_default.json');
+    if (raw) {
+        try {
+            _fileDefaultMapping = JSON.parse(raw);
+            if (!Array.isArray(_fileDefaultMapping)) _fileDefaultMapping = [];
+        } catch (e) { _fileDefaultMapping = []; }
+    }
+}
 
 // ===== 全局状态 =====
 let fieldDefs = [];
 let batchRows = [];
 let printLog = [];
 
+// ===== 标签页隔离 =====
+var tabId = window.name || '';
+if (!tabId) {
+    tabId = Math.random().toString(36).slice(2, 8);
+    window.name = tabId;
+}
+function storageKey(base) {
+    return 'bt_' + tabId + '_' + base;
+}
+function updateTabRegistry() {
+    var list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
+    list[tabId] = Date.now();
+    var cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+    for (var id in list) {
+        if (list[id] < cutoff) {
+            delete list[id];
+            ['customFieldDefs', 'batchTableData', 'printLog', 'btPrinterName',
+             'btUseDefaultPrinter', 'btServiceUrl', 'qrFormat'].forEach(function (suffix) {
+                localStorage.removeItem('bt_' + id + '_' + suffix);
+            });
+            // 清理该 tab 的映射记录
+            var mappingPrefix = 'bt_' + id + '_btMapping_';
+            for (var mk in localStorage) {
+                if (localStorage.hasOwnProperty(mk) && mk.indexOf(mappingPrefix) === 0) {
+                    localStorage.removeItem(mk);
+                }
+            }
+        }
+    }
+    localStorage.setItem('bt_tabList', JSON.stringify(list));
+}
+
 // ===== BarTender 映射状态 =====
-const BARTENDER_SERVICE_URL = localStorage.getItem('btServiceUrl') || 'http://localhost:8000';
+const BARTENDER_SERVICE_URL = (localStorage.getItem(storageKey('btServiceUrl')) || 'http://localhost:8000');
 let _mappingCache = null;
 let _mappingTemplate = null;
 
 // ===== 初始化 =====
-window.onload = function () {
+window.onload = async function () {
+    updateTabRegistry();
+    await loadAllDefaults();
     loadFieldDefs();
     loadBatchRows();
     loadPrintLog();
@@ -38,21 +103,19 @@ window.onload = function () {
 // ==================== 字段定义管理 ====================
 
 function loadFieldDefs() {
-    const saved = localStorage.getItem('customFieldDefs');
+    var saved = localStorage.getItem(storageKey('customFieldDefs'));
     if (saved) {
         try {
             fieldDefs = JSON.parse(saved);
             if (!Array.isArray(fieldDefs) || fieldDefs.length === 0) throw new Error('empty');
-        } catch (e) {
-            fieldDefs = JSON.parse(JSON.stringify(DEFAULT_FIELD_DEFS));
-        }
-    } else {
-        fieldDefs = JSON.parse(JSON.stringify(DEFAULT_FIELD_DEFS));
+            return;
+        } catch (e) { }
     }
+    fieldDefs = _fileDefaultDefs.length > 0 ? JSON.parse(JSON.stringify(_fileDefaultDefs)) : [];
 }
 
 function saveFieldDefs() {
-    localStorage.setItem('customFieldDefs', JSON.stringify(fieldDefs));
+    localStorage.setItem(storageKey('customFieldDefs'), JSON.stringify(fieldDefs));
 }
 
 function addFieldDef() {
@@ -74,8 +137,10 @@ function addFieldDef() {
 
 function deleteFieldDef(index) {
     if (!confirm('确定删除字段 "' + (fieldDefs[index].label || fieldDefs[index].key || '(空)') + '" 吗？\n批量表中的对应列数据将丢失。')) return;
+    var removedKey = fieldDefs[index].key;
     fieldDefs.splice(index, 1);
-    // Also remove column data from batch rows
+    batchRows.forEach(function (row) { delete row[removedKey]; });
+    saveBatchRows();
     saveFieldDefs();
     refreshAll();
 }
@@ -179,6 +244,98 @@ function exportFieldDefs() {
     URL.revokeObjectURL(url);
 }
 
+var _selectedImportTabId = null;
+
+function showTabImport() {
+    var list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
+    var tabs = Object.keys(list).filter(function (id) { return id !== tabId; });
+
+    var container = document.getElementById('tabImportList');
+    if (tabs.length === 0) {
+        container.innerHTML = '<div class="empty-tip">没有其他标签页可继承</div>';
+    } else {
+        container.innerHTML = tabs.map(function (id) {
+            var time = new Date(list[id]).toLocaleString('zh-CN');
+            var fieldCount = '-';
+            var batchCount = '-';
+            try {
+                var fd = JSON.parse(localStorage.getItem('bt_' + id + '_customFieldDefs') || '[]');
+                fieldCount = fd.length;
+                var br = JSON.parse(localStorage.getItem('bt_' + id + '_batchTableData') || '[]');
+                batchCount = br.length;
+            } catch (e) { }
+            return '<label style="display:flex; align-items:center; padding:10px 12px; background:var(--surface2); ' +
+                'border-radius:8px; cursor:pointer; border:2px solid var(--border);' +
+                '" onclick="selectImportTab(\'' + id + '\', this)" data-tab-id="' + id + '">' +
+                '<input type="radio" name="importTab" style="margin-right:10px;">' +
+                '<div style="flex:1;">' +
+                '<div style="font-weight:600; font-size:0.85rem;">标签页 ' + id + '</div>' +
+                '<div style="font-size:0.72rem; color:var(--text-muted);">最后活动: ' + time +
+                ' | ' + fieldCount + ' 个字段 | ' + batchCount + ' 条数据</div>' +
+                '</div></label>';
+        }).join('');
+    }
+    _selectedImportTabId = null;
+    document.getElementById('tabImportConfirmBtn').disabled = true;
+    document.getElementById('tabImportOverlay').style.display = 'flex';
+}
+
+function closeTabImport() {
+    document.getElementById('tabImportOverlay').style.display = 'none';
+    _selectedImportTabId = null;
+    document.getElementById('tabImportConfirmBtn').disabled = true;
+}
+
+function selectImportTab(id, el) {
+    _selectedImportTabId = id;
+    document.getElementById('tabImportConfirmBtn').disabled = false;
+    var labels = document.querySelectorAll('#tabImportList label');
+    labels.forEach(function (l) {
+        l.style.borderColor = 'var(--border)';
+        l.style.background = 'var(--surface2)';
+    });
+    el.style.borderColor = '#7c3aed';
+    el.style.background = '#f5f3ff';
+}
+
+function importAllFromTab() {
+    if (!_selectedImportTabId) return;
+    if (!confirm('确定要从标签页 ' + _selectedImportTabId + ' 继承全部内容吗？\n当前标签页的所有数据将被覆盖。')) return;
+
+    function copyKey(suffix) {
+        var src = localStorage.getItem('bt_' + _selectedImportTabId + '_' + suffix);
+        if (src !== null) {
+            localStorage.setItem(storageKey(suffix), src);
+        }
+    }
+
+    copyKey('customFieldDefs');
+    copyKey('batchTableData');
+    copyKey('printLog');
+    copyKey('btPrinterName');
+    copyKey('btUseDefaultPrinter');
+    copyKey('btServiceUrl');
+    copyKey('qrFormat');
+
+    var mappingPrefix = 'bt_' + _selectedImportTabId + '_btMapping_';
+    var destPrefix = 'bt_' + tabId + '_btMapping_';
+    for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(mappingPrefix) === 0) {
+            var suffix = k.substring(mappingPrefix.length);
+            localStorage.setItem(destPrefix + suffix, localStorage.getItem(k));
+        }
+    }
+
+    closeTabImport();
+    loadFieldDefs();
+    loadBatchRows();
+    loadPrintLog();
+    refreshAll();
+    onDefaultPrinterChange();
+    setBtStatus('已从标签页 ' + _selectedImportTabId + ' 继承全部内容', '#16a34a');
+}
+
 function buildFieldDefList() {
     const container = document.getElementById('fieldDefList');
     container.innerHTML = fieldDefs.map((fd, i) =>
@@ -255,12 +412,14 @@ function buildQRData(fields) {
 }
 
 function getQrFormat() {
-    return localStorage.getItem('qrFormat') || DEFAULT_QR_FORMAT;
+    var saved = localStorage.getItem(storageKey('qrFormat'));
+    if (saved) return saved;
+    return _fileDefaultQrFormat || DEFAULT_QR_FORMAT;
 }
 
 function saveQrFormat() {
     var val = document.getElementById('qrFormatInput').value;
-    localStorage.setItem('qrFormat', val);
+    localStorage.setItem(storageKey('qrFormat'), val);
     updateDataPreview();
     updateQrFormatHint();
 }
@@ -268,7 +427,7 @@ function saveQrFormat() {
 function resetQrFormat() {
     if (!confirm('确定重置为默认二维码组合格式吗？')) return;
     document.getElementById('qrFormatInput').value = DEFAULT_QR_FORMAT;
-    localStorage.setItem('qrFormat', DEFAULT_QR_FORMAT);
+    localStorage.setItem(storageKey('qrFormat'), DEFAULT_QR_FORMAT);
     updateQrFormatHint();
     updateDataPreview();
 }
@@ -296,6 +455,35 @@ function updateQrFormatHint() {
     }
 }
 
+function importQrFormat() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.json';
+    input.onchange = function () {
+        var file = this.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+            var val = reader.result;
+            document.getElementById('qrFormatInput').value = val;
+            saveQrFormat();
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function exportQrFormat() {
+    var format = getQrFormat();
+    var blob = new Blob([format], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'qr_format_' + new Date().toISOString().slice(0, 10) + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 function saveToBatch() {
     const data = getEntryFormData();
     batchRows.push(data);
@@ -318,14 +506,14 @@ function fillEntryFromBatch(index) {
 // ==================== 批量数据表 ====================
 
 function loadBatchRows() {
-    const saved = localStorage.getItem('batchTableData');
+    const saved = localStorage.getItem(storageKey('batchTableData'));
     if (saved) {
         try { batchRows = JSON.parse(saved); } catch (e) { batchRows = []; }
     }
 }
 
 function saveBatchRows() {
-    localStorage.setItem('batchTableData', JSON.stringify(batchRows));
+    localStorage.setItem(storageKey('batchTableData'), JSON.stringify(batchRows));
 }
 
 function buildBatchTable() {
@@ -519,7 +707,7 @@ function updateDataPreview() {
 // ==================== BarTender 打印服务集成 ====================
 
 function getBtServiceUrl() {
-    return localStorage.getItem('btServiceUrl') || BARTENDER_SERVICE_URL;
+    return localStorage.getItem(storageKey('btServiceUrl')) || BARTENDER_SERVICE_URL;
 }
 
 async function refreshTemplates() {
@@ -576,7 +764,7 @@ function onDefaultPrinterChange() {
     var input = document.getElementById('btPrinterName');
     input.disabled = useDefault;
     input.style.opacity = useDefault ? '0.4' : '1';
-    localStorage.setItem('btUseDefaultPrinter', useDefault);
+    localStorage.setItem(storageKey('btUseDefaultPrinter'), useDefault);
 }
 
 function onTemplateChange() {
@@ -586,12 +774,12 @@ function onTemplateChange() {
 }
 
 function restoreBartenderSettings() {
-    var savedPrinter = localStorage.getItem('btPrinterName');
+    var savedPrinter = localStorage.getItem(storageKey('btPrinterName'));
     if (savedPrinter) document.getElementById('btPrinterName').value = savedPrinter;
     document.getElementById('btPrinterName').addEventListener('change', function () {
-        localStorage.setItem('btPrinterName', this.value);
+        localStorage.setItem(storageKey('btPrinterName'), this.value);
     });
-    var useDefault = localStorage.getItem('btUseDefaultPrinter') === 'true';
+    var useDefault = localStorage.getItem(storageKey('btUseDefaultPrinter')) === 'true';
     document.getElementById('btUseDefaultPrinter').checked = useDefault;
 }
 
@@ -604,6 +792,7 @@ function getFormFieldKeys() {
 }
 
 function getDefaultMapping() {
+    if (_fileDefaultMapping.length > 0) return JSON.parse(JSON.stringify(_fileDefaultMapping));
     var keys = getFormFieldKeys();
     return keys.map(function (k) {
         var fd = fieldDefs.find(function (f) { return f.key === k; });
@@ -617,7 +806,7 @@ function getDefaultMapping() {
 }
 
 function getFieldMappingFor(templateName) {
-    var key = 'btMapping_' + templateName;
+    var key = storageKey('btMapping_' + templateName);
     if (_mappingCache && _mappingTemplate === templateName) return _mappingCache;
     var saved = localStorage.getItem(key);
     if (saved) {
@@ -635,7 +824,7 @@ function getFieldMappingFor(templateName) {
 function persistMapping() {
     var templateName = document.getElementById('btTemplateSelect').value;
     if (!templateName) return;
-    localStorage.setItem('btMapping_' + templateName, JSON.stringify(_mappingCache));
+    localStorage.setItem(storageKey('btMapping_' + templateName), JSON.stringify(_mappingCache));
     _mappingTemplate = templateName;
 }
 
@@ -735,6 +924,7 @@ function buildMappingPanel() {
             keyInp.style.borderRadius = '4px';
             keyInp.style.fontSize = '0.78rem';
             keyInp.setAttribute('data-mapping-idx', idx);
+            keyInp.setAttribute('data-mapping-prop', 'key');
             keyInp.onchange = function () {
                 _mappingCache[parseInt(this.getAttribute('data-mapping-idx'))].key = this.value;
                 persistMapping();
@@ -795,7 +985,7 @@ function buildMappingPanel() {
 }
 
 function addMappingField() {
-    _mappingCache.push({ key: '', templateVar: '', value: '', source: 'static' });
+    _mappingCache.push({ key: '', templateVar: '', value: '', source: 'form' });
     persistMapping();
     buildMappingPanel();
     setTimeout(function () {
@@ -845,7 +1035,7 @@ function resetFieldMapping() {
     if (!confirm('确定重置为默认映射吗？')) return;
     _mappingCache = getDefaultMapping();
     _mappingTemplate = templateName || '__default__';
-    localStorage.removeItem('btMapping_' + templateName);
+    localStorage.removeItem(storageKey('btMapping_' + templateName));
     buildMappingPanel();
     setBtStatus('已重置为默认映射', '#64748b');
 }
@@ -1027,16 +1217,15 @@ async function bartenderPrint(printData, templateName, printerName, copies) {
 // ==================== 打印日志 ====================
 
 function loadPrintLog() {
-    var saved = localStorage.getItem('printLog');
+    var saved = localStorage.getItem(storageKey('printLog'));
     if (saved) {
         try { printLog = JSON.parse(saved); } catch (e) { printLog = []; }
     }
 }
 
 function savePrintLog() {
-    // Keep only last 100 entries
     if (printLog.length > 100) printLog = printLog.slice(-100);
-    localStorage.setItem('printLog', JSON.stringify(printLog));
+    localStorage.setItem(storageKey('printLog'), JSON.stringify(printLog));
 }
 
 function addPrintLog(templateName, success, failed) {
