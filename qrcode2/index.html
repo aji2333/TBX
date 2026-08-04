@@ -74,8 +74,15 @@
                 <span class="card-title" style="margin-bottom:0; padding-bottom:0; border:none;">
                     ⚙ 自定义字段 <span class="arrow" style="font-size:0.7rem; display:inline-block;">▼</span>
                 </span>
-                <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-bottom:0;" 
-                    onclick="event.stopPropagation(); addFieldDef()">＋ 添加</button>
+                <div style="display:flex; gap:6px; align-items:center;" onclick="event.stopPropagation()">
+                    <select id="configSelect" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px; font-size:0.75rem; background:#fff; max-width:140px;" onchange="loadConfig(this.value)">
+                        <option value="">— 加载配置 —</option>
+                    </select>
+                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem; margin-bottom:0;" 
+                        onclick="refreshConfigs()" title="刷新配置列表">↻</button>
+                    <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-bottom:0;" 
+                        onclick="addFieldDef()">＋ 添加</button>
+                </div>
             </div>
             <div class="section-body" id="fieldDefSection" style="max-height:800px; margin-top:12px; overflow-y:auto;">
                 <div id="fieldDefList"></div>

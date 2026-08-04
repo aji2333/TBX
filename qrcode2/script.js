@@ -2,48 +2,6 @@
 const DEFAULT_FIELD_DEFS = [];
 const DEFAULT_QR_FORMAT = '';
 
-function loadDefaultFromFile(filename) {
-    try {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', filename, false);
-        xhr.send();
-        if (xhr.status === 200 || xhr.status === 0) return xhr.responseText;
-    } catch (e) { }
-    return null;
-}
-
-async function fetchDefaultFile(filename) {
-    try {
-        var resp = await fetch(filename);
-        if (resp.ok) return await resp.text();
-    } catch (e) { }
-    return loadDefaultFromFile(filename);
-}
-
-// 启动时从文件加载的默认值缓存
-var _fileDefaultDefs = [];
-var _fileDefaultQrFormat = '';
-var _fileDefaultMapping = [];
-
-async function loadAllDefaults() {
-    var raw = await fetchDefaultFile('field_defs_default.json');
-    if (raw) {
-        try {
-            _fileDefaultDefs = JSON.parse(raw);
-            if (!Array.isArray(_fileDefaultDefs)) _fileDefaultDefs = [];
-        } catch (e) { _fileDefaultDefs = []; }
-    }
-    raw = await fetchDefaultFile('qr_format_default.txt');
-    if (raw !== null) _fileDefaultQrFormat = raw.trim();
-    raw = await fetchDefaultFile('mapping_default.json');
-    if (raw) {
-        try {
-            _fileDefaultMapping = JSON.parse(raw);
-            if (!Array.isArray(_fileDefaultMapping)) _fileDefaultMapping = [];
-        } catch (e) { _fileDefaultMapping = []; }
-    }
-}
-
 // ===== 全局状态 =====
 let fieldDefs = [];
 let batchRows = [];
@@ -66,7 +24,7 @@ function updateTabRegistry() {
         if (list[id] < cutoff) {
             delete list[id];
             ['customFieldDefs', 'batchTableData', 'printLog', 'btPrinterName',
-             'btUseDefaultPrinter', 'btServiceUrl', 'qrFormat'].forEach(function (suffix) {
+             'btUseDefaultPrinter', 'btServiceUrl', 'qrFormat', 'btCopies'].forEach(function (suffix) {
                 localStorage.removeItem('bt_' + id + '_' + suffix);
             });
             // 清理该 tab 的映射记录
@@ -87,14 +45,14 @@ let _mappingCache = null;
 let _mappingTemplate = null;
 
 // ===== 初始化 =====
-window.onload = async function () {
+window.onload = function () {
     updateTabRegistry();
-    await loadAllDefaults();
     loadFieldDefs();
     loadBatchRows();
     loadPrintLog();
     refreshAll();
     refreshTemplates();
+    refreshConfigs();
     restoreBartenderSettings();
     onDefaultPrinterChange();
     buildMappingPanel();
@@ -111,7 +69,7 @@ function loadFieldDefs() {
             return;
         } catch (e) { }
     }
-    fieldDefs = _fileDefaultDefs.length > 0 ? JSON.parse(JSON.stringify(_fileDefaultDefs)) : [];
+    fieldDefs = [];
 }
 
 function saveFieldDefs() {
@@ -314,6 +272,7 @@ function importAllFromTab() {
     copyKey('printLog');
     copyKey('btPrinterName');
     copyKey('btUseDefaultPrinter');
+    copyKey('btCopies');
     copyKey('btServiceUrl');
     copyKey('qrFormat');
 
@@ -366,6 +325,10 @@ function escHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function escAttr(str) {
+    return escHtml(str).replace(/'/g, '&#39;');
+}
+
 // ==================== 单条录入表单 ====================
 
 function buildEntryForm() {
@@ -412,9 +375,7 @@ function buildQRData(fields) {
 }
 
 function getQrFormat() {
-    var saved = localStorage.getItem(storageKey('qrFormat'));
-    if (saved) return saved;
-    return _fileDefaultQrFormat || DEFAULT_QR_FORMAT;
+    return localStorage.getItem(storageKey('qrFormat')) || DEFAULT_QR_FORMAT;
 }
 
 function saveQrFormat() {
@@ -544,7 +505,7 @@ function rebuildBatchTable() {
                         'style="background:#fef3c7; cursor:pointer;" title="锁定字段不可编辑。请在顶部字段管理中点击 🔒 解锁此字段。点击此处可回填到录入表单"></td>';
                 }
                 return '<td><input type="text" value="' + escHtml(val) + '" ' +
-                    'onchange="updateBatchCell(' + ri + ', \'' + fd.key + '\', this.value)" ' +
+                    'onchange="updateBatchCell(' + ri + ', \'' + escAttr(fd.key) + '\', this.value)" ' +
                     'onclick="fillEntryFromBatch(' + ri + ')" title="点击可回填到录入表单"></td>';
             }).join('') +
             '<td style="text-align:center;"><button class="del-row-btn" onclick="deleteBatchRow(' + ri + ')" title="删除此行">✕</button></td>' +
@@ -555,10 +516,6 @@ function rebuildBatchTable() {
 
 function updateBatchCount() {
     document.getElementById('batchCount').textContent = '(' + batchRows.length + '条)';
-}
-
-function getBatchTableData() {
-    return batchRows;
 }
 
 function addBatchRow(prefill) {
@@ -753,6 +710,80 @@ async function refreshTemplates() {
     }
 }
 
+async function refreshConfigs() {
+    var select = document.getElementById('configSelect');
+    select.disabled = true;
+
+    try {
+        var resp = await fetch(getBtServiceUrl() + '/api/v1/configs');
+        var result = await resp.json();
+        select.innerHTML = '<option value="">— 加载配置 —</option>';
+
+        if (result.configs && result.configs.length > 0) {
+            result.configs.forEach(function (c) {
+                var opt = document.createElement('option');
+                opt.value = c.name;
+                opt.textContent = c.name.replace('.json', '');
+                select.appendChild(opt);
+            });
+        } else {
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '(configs 目录为空)';
+            opt.disabled = true;
+            select.appendChild(opt);
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">— 服务未连接 —</option>';
+    } finally {
+        select.disabled = false;
+    }
+}
+
+async function loadConfig(name) {
+    if (!name) return;
+    if (!confirm('确定要加载配置 "' + name.replace('.json', '') + '" 吗？\n当前字段定义、字段映射和二维码格式将被覆盖。')) {
+        document.getElementById('configSelect').value = '';
+        return;
+    }
+
+    try {
+        var resp = await fetch(getBtServiceUrl() + '/api/v1/configs/' + encodeURIComponent(name));
+        if (!resp.ok) {
+            alert('加载失败: ' + resp.status);
+            document.getElementById('configSelect').value = '';
+            return;
+        }
+        var config = await resp.json();
+
+        // 应用字段定义
+        if (config.fieldDefs && Array.isArray(config.fieldDefs)) {
+            localStorage.setItem(storageKey('customFieldDefs'), JSON.stringify(config.fieldDefs));
+        }
+        // 应用 QR 格式
+        if (typeof config.qrFormat === 'string') {
+            localStorage.setItem(storageKey('qrFormat'), config.qrFormat);
+        }
+        // 应用字段映射（存到当前模板名下）
+        var templateName = document.getElementById('btTemplateSelect').value;
+        if (config.mapping && Array.isArray(config.mapping)) {
+            localStorage.setItem(storageKey('btMapping_' + templateName), JSON.stringify(config.mapping));
+        }
+
+        // 重新加载并刷新
+        loadFieldDefs();
+        _mappingCache = null;
+        _mappingTemplate = null;
+        refreshAll();
+        onDefaultPrinterChange();
+        setBtStatus('已加载配置: ' + name.replace('.json', ''), '#16a34a');
+        document.getElementById('configSelect').value = '';
+    } catch (e) {
+        alert('加载配置失败: ' + e.message);
+        document.getElementById('configSelect').value = '';
+    }
+}
+
 function setBtStatus(msg, color) {
     var el = document.getElementById('btPrintStatus');
     el.textContent = msg;
@@ -781,6 +812,11 @@ function restoreBartenderSettings() {
     });
     var useDefault = localStorage.getItem(storageKey('btUseDefaultPrinter')) === 'true';
     document.getElementById('btUseDefaultPrinter').checked = useDefault;
+    var savedCopies = localStorage.getItem(storageKey('btCopies'));
+    if (savedCopies) document.getElementById('btCopies').value = savedCopies;
+    document.getElementById('btCopies').addEventListener('change', function () {
+        localStorage.setItem(storageKey('btCopies'), this.value);
+    });
 }
 
 // ==================== 字段映射 ====================
@@ -792,7 +828,6 @@ function getFormFieldKeys() {
 }
 
 function getDefaultMapping() {
-    if (_fileDefaultMapping.length > 0) return JSON.parse(JSON.stringify(_fileDefaultMapping));
     var keys = getFormFieldKeys();
     return keys.map(function (k) {
         var fd = fieldDefs.find(function (f) { return f.key === k; });
@@ -870,9 +905,8 @@ function buildMappingPanel() {
     if (!container) return;
     var templateName = document.getElementById('btTemplateSelect').value;
     getFieldMappingFor(templateName);
-    var formFields = getEntryFormData();
-
     container.innerHTML = '';
+
     _mappingCache.forEach(function (item, idx) {
         var div = document.createElement('div');
         div.style.display = 'flex';
@@ -989,8 +1023,8 @@ function addMappingField() {
     persistMapping();
     buildMappingPanel();
     setTimeout(function () {
-        var inp = document.querySelector('#btMappingFields input[data-mapping-prop="templateVar"]');
-        if (inp) inp.focus();
+        var inps = document.querySelectorAll('#btMappingFields input[data-mapping-prop="templateVar"]');
+        if (inps.length > 0) inps[inps.length - 1].focus();
     }, 50);
 }
 
@@ -1273,7 +1307,6 @@ function refreshAll() {
     validateFieldKeys();
     buildEntryForm();
     restoreEntryFormData(savedFormData);
-    buildBatchTable();
     rebuildBatchTable();
     updateDataPreview();
     renderPrintLog();
