@@ -17,7 +17,8 @@ function storageKey(base) {
     return 'bt_' + tabId + '_' + base;
 }
 function updateTabRegistry() {
-    var list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
+    var list = {};
+    try { list = JSON.parse(localStorage.getItem('bt_tabList') || '{}'); } catch (e) {}
     list[tabId] = Date.now();
     var cutoff = Date.now() - 30 * 24 * 3600 * 1000;
     for (var id in list) {
@@ -27,13 +28,14 @@ function updateTabRegistry() {
              'btUseDefaultPrinter', 'btServiceUrl', 'qrFormat', 'btCopies'].forEach(function (suffix) {
                 localStorage.removeItem('bt_' + id + '_' + suffix);
             });
-            // 清理该 tab 的映射记录
             var mappingPrefix = 'bt_' + id + '_btMapping_';
-            for (var mk in localStorage) {
-                if (localStorage.hasOwnProperty(mk) && mk.indexOf(mappingPrefix) === 0) {
-                    localStorage.removeItem(mk);
-                }
+            // 先收集再删除，避免迭代中修改 localStorage 导致跳过
+            var toRemove = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var mk = localStorage.key(i);
+                if (mk && mk.indexOf(mappingPrefix) === 0) toRemove.push(mk);
             }
+            toRemove.forEach(function (k) { localStorage.removeItem(k); });
         }
     }
     localStorage.setItem('bt_tabList', JSON.stringify(list));
@@ -203,6 +205,7 @@ function exportFieldDefs() {
 }
 
 var _selectedImportTabId = null;
+var _selectedBatchRow = -1;
 
 function showTabImport() {
     var list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
@@ -329,6 +332,11 @@ function escAttr(str) {
     return escHtml(str).replace(/'/g, '&#39;');
 }
 
+// 取值：只有 undefined/null 才返回空，保留 0/false 等
+function strVal(v) {
+    return (v !== undefined && v !== null) ? v : '';
+}
+
 // ==================== 单条录入表单 ====================
 
 function buildEntryForm() {
@@ -368,9 +376,9 @@ function clearEntryForm() {
 function buildQRData(fields) {
     var format = getQrFormat();
     return format.replace(/\{(\w+)\}/g, function (match, key) {
-        if (fields && fields[key]) return fields[key];
+        if (fields && fields[key] !== undefined && fields[key] !== null) return fields[key];
         var fd = fieldDefs.find(function (f) { return f.key === key; });
-        return fd ? (fd.defaultValue || '') : '';
+        return fd ? strVal(fd.defaultValue) : '';
     });
 }
 
@@ -383,6 +391,7 @@ function saveQrFormat() {
     localStorage.setItem(storageKey('qrFormat'), val);
     updateDataPreview();
     updateQrFormatHint();
+    updateFieldStats();
 }
 
 function resetQrFormat() {
@@ -391,6 +400,7 @@ function resetQrFormat() {
     localStorage.setItem(storageKey('qrFormat'), DEFAULT_QR_FORMAT);
     updateQrFormatHint();
     updateDataPreview();
+    updateFieldStats();
 }
 
 function previewQrFormat() {
@@ -459,7 +469,7 @@ function fillEntryFromBatch(index) {
     if (!row) return;
     fieldDefs.forEach(function (fd, i) {
         const el = document.getElementById('ef_' + i);
-        if (el) el.value = row[fd.key] || '';
+        if (el) el.value = strVal(row[fd.key]);
     });
     updateDataPreview();
 }
@@ -496,22 +506,81 @@ function rebuildBatchTable() {
     buildBatchTable();
     const tbody = document.getElementById('batchTableBody');
     tbody.innerHTML = batchRows.map(function (row, ri) {
-        return '<tr>' +
+        return '<tr class="' + (ri === _selectedBatchRow ? 'batch-row-selected' : '') + '">' +
             '<td style="text-align:center; color:var(--text-muted); font-size:0.8rem;">' + (ri + 1) + '</td>' +
             fieldDefs.map(function (fd, fi) {
-                var val = row[fd.key] || '';
+                var val = strVal(row[fd.key]);
                 if (fd.locked) {
-                    return '<td><input type="text" value="' + escHtml(val) + '" onclick="fillEntryFromBatch(' + ri + ')" readonly ' +
-                        'style="background:#fef3c7; cursor:pointer;" title="锁定字段不可编辑。请在顶部字段管理中点击 🔒 解锁此字段。点击此处可回填到录入表单"></td>';
+                    return '<td><input type="text" value="' + escHtml(String(val)) + '" readonly ' +
+                        'data-row="' + ri + '" data-col="' + fi + '" ' +
+                        'style="background:#fef3c7; cursor:pointer;" title="锁定字段不可编辑。请在字段设置中点击 🔒 解锁。点击此处可回填到录入表单"></td>';
                 }
-                return '<td><input type="text" value="' + escHtml(val) + '" ' +
-                    'onchange="updateBatchCell(' + ri + ', \'' + escAttr(fd.key) + '\', this.value)" ' +
-                    'onclick="fillEntryFromBatch(' + ri + ')" title="点击可回填到录入表单"></td>';
+                return '<td><input type="text" value="' + escHtml(String(val)) + '" ' +
+                    'data-row="' + ri + '" data-col="' + fi + '" ' +
+                    'onchange="updateBatchCellByIndex(' + ri + ', ' + fi + ', this.value)" ' +
+                    'title="点击可回填到录入表单"></td>';
             }).join('') +
             '<td style="text-align:center;"><button class="del-row-btn" onclick="deleteBatchRow(' + ri + ')" title="删除此行">✕</button></td>' +
             '</tr>';
     }).join('');
     updateBatchCount();
+    bindBatchTableEvents();
+}
+
+function bindBatchTableEvents() {
+    var tbody = document.getElementById('batchTableBody');
+    tbody.onclick = function (e) {
+        if (e.target.tagName === 'INPUT') {
+            var row = parseInt(e.target.getAttribute('data-row'));
+            if (!isNaN(row)) {
+                // 只切换 CSS，不重建 DOM
+                var rows = tbody.querySelectorAll('tr');
+                rows.forEach(function (tr, i) {
+                    tr.classList.toggle('batch-row-selected', i === row);
+                });
+                _selectedBatchRow = row;
+                fillEntryFromBatch(row);
+            }
+        }
+    };
+    tbody.onkeydown = function (e) {
+        if (e.target.tagName !== 'INPUT' || e.target.readOnly) return;
+        var row = parseInt(e.target.getAttribute('data-row'));
+        var col = parseInt(e.target.getAttribute('data-col'));
+        if (isNaN(row) || isNaN(col)) return;
+
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            saveCurrentCell(row, col, e.target.value);
+            if (row + 1 >= batchRows.length) {
+                _selectedBatchRow = row;
+                addBatchRow();
+                rebuildBatchTable();
+            }
+            _selectedBatchRow = row + 1;
+            focusBatchCell(row + 1, col);
+        } else if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault();
+            saveCurrentCell(row, col, e.target.value);
+            _selectedBatchRow = Math.max(0, row - 1);
+            focusBatchCell(_selectedBatchRow, col);
+        }
+    };
+}
+
+function saveCurrentCell(row, col, value) {
+    if (row >= batchRows.length) return;
+    var key = (col < fieldDefs.length) ? fieldDefs[col].key : null;
+    if (!key) return;
+    batchRows[row][key] = value;
+    saveBatchRows();
+}
+
+function focusBatchCell(row, col) {
+    setTimeout(function () {
+        var inp = document.querySelector('#batchTableBody input[data-row="' + row + '"][data-col="' + col + '"]');
+        if (inp && !inp.readOnly) { inp.focus(); inp.select(); }
+    }, 50);
 }
 
 function updateBatchCount() {
@@ -520,16 +589,29 @@ function updateBatchCount() {
 
 function addBatchRow(prefill) {
     var row = {};
+    var srcRow = _selectedBatchRow >= 0 && _selectedBatchRow < batchRows.length
+        ? batchRows[_selectedBatchRow]
+        : (batchRows.length > 0 ? batchRows[batchRows.length - 1] : null);
     fieldDefs.forEach(function (fd) {
-        row[fd.key] = (prefill && prefill[fd.key]) ? prefill[fd.key] : (fd.defaultValue || '');
+        if (prefill && prefill[fd.key]) {
+            row[fd.key] = prefill[fd.key];
+        } else if (srcRow && srcRow[fd.key]) {
+            row[fd.key] = srcRow[fd.key];
+        } else {
+            row[fd.key] = fd.defaultValue || '';
+        }
     });
-    batchRows.push(row);
+    // 插入到选中行的下一行，否则追加末尾
+    var insertAt = _selectedBatchRow >= 0 ? _selectedBatchRow + 1 : batchRows.length;
+    batchRows.splice(insertAt, 0, row);
+    _selectedBatchRow = insertAt;
     saveBatchRows();
     rebuildBatchTable();
 }
 
 function deleteBatchRow(index) {
     batchRows.splice(index, 1);
+    if (_selectedBatchRow >= batchRows.length) _selectedBatchRow = batchRows.length - 1;
     saveBatchRows();
     rebuildBatchTable();
 }
@@ -537,6 +619,12 @@ function deleteBatchRow(index) {
 function updateBatchCell(rowIndex, key, value) {
     if (!batchRows[rowIndex]) return;
     batchRows[rowIndex][key] = value;
+    saveBatchRows();
+}
+
+function updateBatchCellByIndex(rowIndex, colIndex, value) {
+    if (!batchRows[rowIndex] || colIndex >= fieldDefs.length) return;
+    batchRows[rowIndex][fieldDefs[colIndex].key] = value;
     saveBatchRows();
 }
 
@@ -567,12 +655,12 @@ function autoGenerate() {
         var newRow = {};
         fieldDefs.forEach(function (fd) {
             if (fd.increment && lastRow) {
-                var prev = lastRow[fd.key] || '';
+                var prev = strVal(lastRow[fd.key]);
                 newRow[fd.key] = autoIncrementValue(prev);
             } else if (fd.locked || !fd.increment) {
-                newRow[fd.key] = lastRow ? (lastRow[fd.key] || fd.defaultValue || '') : (fd.defaultValue || '');
+                newRow[fd.key] = lastRow ? strVal(lastRow[fd.key]) : strVal(fd.defaultValue);
             } else {
-                newRow[fd.key] = lastRow ? (lastRow[fd.key] || fd.defaultValue || '') : (fd.defaultValue || '');
+                newRow[fd.key] = lastRow ? strVal(lastRow[fd.key]) : strVal(fd.defaultValue);
             }
         });
         batchRows.push(newRow);
@@ -609,6 +697,7 @@ function autoIncrementValue(val) {
 function clearBatchTable() {
     if (!confirm('确定清空全部批量数据吗？')) return;
     batchRows = [];
+    _selectedBatchRow = -1;
     saveBatchRows();
     rebuildBatchTable();
 }
@@ -874,13 +963,19 @@ function getBtPrintData(fields) {
             if (item.key === 'qrdata') {
                 data[item.templateVar] = qrdata;
             } else {
-                data[item.templateVar] = (fields && fields[item.key]) ? fields[item.key] : '';
+                var v = fields && fields[item.key];
+                data[item.templateVar] = (v !== undefined && v !== null) ? toBarTenderText(v) : '';
             }
         } else {
-            data[item.templateVar] = item.value || '';
+            data[item.templateVar] = toBarTenderText(strVal(item.value));
         }
     });
     return data;
+}
+
+// \n → 实际换行符，用于 BarTender 多行文本
+function toBarTenderText(str) {
+    return String(str).replace(/\\n/g, '\n');
 }
 
 function toggleMappingPanel() {
@@ -1309,11 +1404,33 @@ function refreshAll() {
     restoreEntryFormData(savedFormData);
     rebuildBatchTable();
     updateDataPreview();
+    updateFieldStats();
     renderPrintLog();
     updateQrFormatInput();
     _mappingCache = null;
     _mappingTemplate = null;
     buildMappingPanel();
+}
+
+function openFieldSettings() {
+    updateQrFormatInput();
+    updateQrFormatHint();
+    document.getElementById('fieldSettingsOverlay').style.display = 'flex';
+}
+
+function closeFieldSettings() {
+    document.getElementById('fieldSettingsOverlay').style.display = 'none';
+    refreshAll();
+}
+
+function updateFieldStats() {
+    var el = document.getElementById('fieldStats');
+    if (el) el.textContent = fieldDefs.length + ' 个字段';
+    var qrEl = document.getElementById('qrStats');
+    if (qrEl) {
+        var format = getQrFormat();
+        qrEl.textContent = format ? 'QR: ' + (format.length > 30 ? format.substring(0, 30) + '...' : format) : 'QR: 未设置';
+    }
 }
 
 function restoreEntryFormData(data) {
