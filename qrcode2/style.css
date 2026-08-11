@@ -397,6 +397,38 @@ header span {
 .card.zoomed #batchTableWrap {
     flex: 1;
     max-height: none;
+    overflow: auto;
+}
+.card.zoomed #batchTable {
+    table-layout: auto !important;
+    width: auto !important;
+    min-width: auto !important;
+}
+.card.zoomed #batchTable td {
+    white-space: nowrap;
+    padding: 2px 4px;
+}
+.card.zoomed #batchTable td input {
+    width: auto;
+    min-width: 40px;
+    max-width: 500px;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+}
+#batchTable {
+    width: 100%;
+    min-width: 600px;
+    table-layout: fixed;
+}
+.card.zoomed #batchTable td input {
+    width: auto;
+    min-width: 100px;
+    max-width: 400px;
+}
+.card.zoomed #batchTable th,
+.card.zoomed #batchTable td {
+    white-space: normal;
+    word-break: break-all;
 }
 
 .zoom-overlay {

@@ -60,6 +60,18 @@ window.onload = function () {
     buildMappingPanel();
 };
 
+window.addEventListener('beforeunload', function () {
+    var inputs = document.querySelectorAll('#batchTableBody input:not([readonly])');
+    inputs.forEach(function (inp) {
+        var row = parseInt(inp.getAttribute('data-row'));
+        var col = parseInt(inp.getAttribute('data-col'));
+        if (!isNaN(row) && !isNaN(col) && row < batchRows.length && col < fieldDefs.length) {
+            batchRows[row][fieldDefs[col].key] = inp.value;
+        }
+    });
+    saveBatchRows();
+});
+
 // ==================== 字段定义管理 ====================
 
 function loadFieldDefs() {
@@ -340,32 +352,76 @@ function strVal(v) {
 // ==================== 单条录入表单 ====================
 
 function buildEntryForm() {
+    var cache = loadEntryCache();
     const container = document.getElementById('entryForm');
-    container.innerHTML = fieldDefs.map((fd, i) =>
-        '<div class="field-row" style="margin-bottom:10px;">' +
+    container.innerHTML = fieldDefs.map((fd, i) => {
+        var val = strVal(cache[fd.key] !== undefined ? cache[fd.key] : fd.defaultValue);
+        return '<div class="field-row" style="margin-bottom:10px;">' +
         '<div class="field-group" style="flex:1;">' +
         '<label>' + (fd.label || fd.key || '(未命名)') +
         (fd.locked ? '<span class="fixed-badge">锁定</span>' : '') + '</label>' +
-        '<input type="text" id="ef_' + i + '" value="' + escHtml(fd.defaultValue) + '" ' +
-        'placeholder="' + escHtml(fd.label || fd.key) + '" oninput="updateDataPreview()">' +
-        '</div></div>'
-    ).join('');
+        '<input type="text" id="ef_' + i + '" value="' + escHtml(val) + '" ' +
+        'placeholder="' + escHtml(fd.label || fd.key) + '" ' +
+        'title="' + escAttr(val) + '" ' +
+        'oninput="onEntryFieldChange(' + i + ', this.value)" onkeydown="onEntryKeyDown(event)" data-field-index="' + i + '">' +
+        '</div></div>';
+    }).join('');
     if (fieldDefs.length === 0) {
         container.innerHTML = '<div class="empty-tip">请先在字段管理中定义字段</div>';
     }
 }
 
+function loadEntryCache() {
+    try {
+        var saved = localStorage.getItem(storageKey('entryFormData'));
+        if (saved) return JSON.parse(saved);
+    } catch (e) { }
+    return {};
+}
+
+function saveEntryCache(cache) {
+    try {
+        localStorage.setItem(storageKey('entryFormData'), JSON.stringify(cache));
+    } catch (e) { }
+}
+
+function onEntryFieldChange(index, value) {
+    var fd = fieldDefs[index];
+    if (fd) {
+        var cache = loadEntryCache();
+        cache[fd.key] = value;
+        saveEntryCache(cache);
+    }
+    updateDataPreview();
+}
+
+function onEntryKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        var container = document.getElementById('entryForm');
+        var inputs = Array.from(container.querySelectorAll('input[type="text"]:not([readonly])'));
+        var idx = inputs.indexOf(e.target);
+        if (idx >= 0 && idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+            inputs[idx + 1].select();
+        }
+    }
+}
+
 function getEntryFormData() {
+    var cache = loadEntryCache();
     const data = {};
     fieldDefs.forEach(function (fd, i) {
         const el = document.getElementById('ef_' + i);
-        data[fd.key] = el ? el.value : (fd.defaultValue || '');
+        var val = el ? el.value : (cache[fd.key] !== undefined ? cache[fd.key] : strVal(fd.defaultValue));
+        data[fd.key] = val;
     });
     data['qrdata'] = buildQRData(data);
     return data;
 }
 
 function clearEntryForm() {
+    saveEntryCache({});
     fieldDefs.forEach(function (fd, i) {
         const el = document.getElementById('ef_' + i);
         if (el) el.value = fd.defaultValue || '';
@@ -459,6 +515,8 @@ function saveToBatch() {
     const data = getEntryFormData();
     batchRows.push(data);
     saveBatchRows();
+    saveEntryCache({});
+    clearEntryForm();
     rebuildBatchTable();
     updateBatchCount();
     updateDataPreview();
@@ -491,8 +549,8 @@ function buildBatchTable() {
     const thead = document.getElementById('batchTableHead');
     thead.innerHTML = '<tr>' +
         '<th style="width:36px; text-align:center;">#</th>' +
-        fieldDefs.map(function (fd) {
-            return '<th>' + (fd.label || fd.key) +
+        fieldDefs.map(function (fd, ci) {
+            return '<th style="cursor:col-resize;" ondblclick="autoSizeColumn(' + ci + ')" title="双击自动调整列宽">' + (fd.label || fd.key) +
                 (fd.locked ? ' <span style="color:#b45309;font-size:0.7rem;">🔒</span>' : '') +
                 (fd.increment ? ' <span style="color:#2563eb;font-size:0.7rem;">⇧</span>' : '') +
                 (fd.qrField ? ' <span style="color:#7c3aed;font-size:0.7rem;">▦</span>' : '') +
@@ -500,6 +558,75 @@ function buildBatchTable() {
         }).join('') +
         '<th style="width:40px; text-align:center;">✕</th>' +
         '</tr>';
+}
+
+function restoreColWidths() {
+    var table = document.getElementById('batchTable');
+    if (!table) return;
+    var widths = {};
+    try { widths = JSON.parse(localStorage.getItem(storageKey('colWidths')) || '{}'); } catch (e) { return; }
+    var colKeys = Object.keys(widths);
+    if (colKeys.length === 0) return;
+
+    var ths = table.querySelectorAll('thead th');
+    var inputs = table.querySelectorAll('tbody td input');
+
+    for (var c = 0; c < colKeys.length; c++) {
+        var ci = parseInt(colKeys[c]);
+        var w = widths[ci];
+        var th = ths[ci + 1];
+        if (th) th.style.width = w;
+        for (var i = 0; i < inputs.length; i++) {
+            var inp = inputs[i];
+            if (parseInt(inp.getAttribute('data-col')) === ci) {
+                inp.style.width = w;
+                inp.style.minWidth = '0';
+            }
+        }
+    }
+}
+
+function autoSizeColumn(colIndex) {
+    var table = document.getElementById('batchTable');
+    if (!table) return;
+
+    // 测量工具
+    var ruler = document.getElementById('colRuler');
+    if (!ruler) {
+        ruler = document.createElement('span');
+        ruler.id = 'colRuler';
+        ruler.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:0.95rem;font-family:inherit;padding:12px 10px;';
+        document.body.appendChild(ruler);
+    }
+
+    // 测表头
+    var th = table.querySelectorAll('thead th')[colIndex + 1]; // +1 跳过#列
+    var maxW = 0;
+    if (th) {
+        ruler.textContent = (th.textContent || '').trim();
+        maxW = ruler.offsetWidth;
+    }
+
+    // 测所有行
+    var inputs = table.querySelectorAll('tbody input[data-col="' + colIndex + '"]');
+    for (var i = 0; i < inputs.length; i++) {
+        ruler.textContent = inputs[i].value || '';
+        maxW = Math.max(maxW, ruler.offsetWidth);
+    }
+
+    // 设置列宽（给 th 和该列所有 td）
+    var w = Math.min(Math.max(maxW + 16, 50), 600) + 'px';
+    if (th) th.style.width = w;
+    inputs.forEach(function (inp) {
+        inp.style.width = w;
+        inp.style.minWidth = '0';
+    });
+
+    // 持久化列宽
+    var widths = {};
+    try { widths = JSON.parse(localStorage.getItem(storageKey('colWidths')) || '{}'); } catch (e) { }
+    widths[colIndex] = w;
+    localStorage.setItem(storageKey('colWidths'), JSON.stringify(widths));
 }
 
 function rebuildBatchTable() {
@@ -513,18 +640,22 @@ function rebuildBatchTable() {
                 if (fd.locked) {
                     return '<td><input type="text" value="' + escHtml(String(val)) + '" readonly ' +
                         'data-row="' + ri + '" data-col="' + fi + '" ' +
-                        'style="background:#fef3c7; cursor:pointer;" title="锁定字段不可编辑。请在字段设置中点击 🔒 解锁。点击此处可回填到录入表单"></td>';
+                        'style="background:#fef3c7; cursor:pointer;" title="' + escAttr(String(val || '(空)')) + '"></td>';
                 }
                 return '<td><input type="text" value="' + escHtml(String(val)) + '" ' +
                     'data-row="' + ri + '" data-col="' + fi + '" ' +
+                    'oninput="var inp=document.querySelector(\'#batchTableBody input[data-row=' + ri + '][data-col=' + fi + ']\');if(inp)inp.title=inp.value||\'(空)\'" ' +
                     'onchange="updateBatchCellByIndex(' + ri + ', ' + fi + ', this.value)" ' +
-                    'title="点击可回填到录入表单"></td>';
+                    'title="' + escAttr(String(val || '(空)')) + '"></td>';
             }).join('') +
             '<td style="text-align:center;"><button class="del-row-btn" onclick="deleteBatchRow(' + ri + ')" title="删除此行">✕</button></td>' +
             '</tr>';
     }).join('');
     updateBatchCount();
     bindBatchTableEvents();
+    requestAnimationFrame(function () {
+        requestAnimationFrame(restoreColWidths);
+    });
 }
 
 function bindBatchTableEvents() {
@@ -549,9 +680,13 @@ function bindBatchTableEvents() {
         var col = parseInt(e.target.getAttribute('data-col'));
         if (isNaN(row) || isNaN(col)) return;
 
+        var handled = true;
+        var inp = e.target;
+        var pos = inp.selectionStart;
+        var len = inp.value.length;
+
         if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            saveCurrentCell(row, col, e.target.value);
+            saveCurrentCell(row, col, inp.value);
             if (row + 1 >= batchRows.length) {
                 _selectedBatchRow = row;
                 addBatchRow();
@@ -560,11 +695,32 @@ function bindBatchTableEvents() {
             _selectedBatchRow = row + 1;
             focusBatchCell(row + 1, col);
         } else if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault();
-            saveCurrentCell(row, col, e.target.value);
+            saveCurrentCell(row, col, inp.value);
             _selectedBatchRow = Math.max(0, row - 1);
             focusBatchCell(_selectedBatchRow, col);
+        } else if (e.key === 'ArrowDown') {
+            saveCurrentCell(row, col, inp.value);
+            if (row + 1 >= batchRows.length) {
+                _selectedBatchRow = row;
+                addBatchRow();
+                rebuildBatchTable();
+            }
+            _selectedBatchRow = row + 1;
+            focusBatchCell(row + 1, col);
+        } else if (e.key === 'ArrowUp') {
+            saveCurrentCell(row, col, inp.value);
+            _selectedBatchRow = Math.max(0, row - 1);
+            focusBatchCell(_selectedBatchRow, col);
+        } else if (e.key === 'ArrowRight' && pos === len && col < fieldDefs.length - 1) {
+            saveCurrentCell(row, col, inp.value);
+            focusBatchCell(row, col + 1);
+        } else if (e.key === 'ArrowLeft' && pos === 0 && col > 0) {
+            saveCurrentCell(row, col, inp.value);
+            focusBatchCell(row, col - 1);
+        } else {
+            handled = false;
         }
+        if (handled) e.preventDefault();
     };
 }
 
@@ -576,11 +732,19 @@ function saveCurrentCell(row, col, value) {
     saveBatchRows();
 }
 
-function focusBatchCell(row, col) {
+function focusBatchCell(row, col, depth) {
+    if (depth === undefined) depth = 0;
+    if (depth > fieldDefs.length) return;
     setTimeout(function () {
         var inp = document.querySelector('#batchTableBody input[data-row="' + row + '"][data-col="' + col + '"]');
-        if (inp && !inp.readOnly) { inp.focus(); inp.select(); }
-    }, 50);
+        if (!inp) return;
+        if (inp.readOnly) {
+            focusBatchCell(row, Math.min(col + 1, fieldDefs.length - 1), depth + 1);
+            return;
+        }
+        inp.focus();
+        inp.select();
+    }, 80);
 }
 
 function updateBatchCount() {
@@ -626,6 +790,9 @@ function updateBatchCellByIndex(rowIndex, colIndex, value) {
     if (!batchRows[rowIndex] || colIndex >= fieldDefs.length) return;
     batchRows[rowIndex][fieldDefs[colIndex].key] = value;
     saveBatchRows();
+    // 同步更新 title 显示完整值
+    var inp = document.querySelector('#batchTableBody input[data-row="' + rowIndex + '"][data-col="' + colIndex + '"]');
+    if (inp) inp.title = value || '(空)';
 }
 
 function autoGenerate() {
@@ -707,14 +874,25 @@ function clearBatchTable() {
 function toggleBatchZoom() {
     var card = document.getElementById('batchCard');
     var overlay = document.getElementById('zoomOverlay');
+    var table = document.getElementById('batchTable');
+    var wrap = document.getElementById('batchTableWrap');
+
     if (card.classList.contains('zoomed')) {
         card.classList.remove('zoomed');
         overlay.classList.remove('active');
         document.getElementById('zoomBtn').textContent = '🔍 全屏编辑';
+        table.style.tableLayout = 'fixed';
+        table.style.width = '100%';
+        table.style.minWidth = '600px';
+        wrap.style.maxHeight = '';
     } else {
         card.classList.add('zoomed');
         overlay.classList.add('active');
         document.getElementById('zoomBtn').textContent = '✕ 退出全屏';
+        table.style.tableLayout = 'auto';
+        table.style.width = '';
+        table.style.minWidth = '';
+        wrap.style.maxHeight = '';
     }
 }
 
@@ -1397,11 +1575,9 @@ function clearPrintLog() {
 // ==================== 刷新全部UI ====================
 
 function refreshAll() {
-    var savedFormData = getEntryFormData();
     buildFieldDefList();
     validateFieldKeys();
     buildEntryForm();
-    restoreEntryFormData(savedFormData);
     rebuildBatchTable();
     updateDataPreview();
     updateFieldStats();
