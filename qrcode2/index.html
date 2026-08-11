@@ -279,6 +279,22 @@
                     onclick="exportQrFormat()">📤</button>
             </div>
         </div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">🔍 型号→规格 查询表</span>
+                <span>
+                    <button class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;" 
+                        onclick="importLookup()">📥</button>
+                    <button class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;" 
+                        onclick="exportLookup()">📤</button>
+                </span>
+                <span style="font-size:0.72rem; color:var(--text-muted);">{型号: {规格1: 值, 规格2: 值}}</span>
+            </div>
+            <textarea id="lookupInput" rows="6" style="width:100%; padding:8px; border:1px solid var(--border); 
+                border-radius:6px; font-size:0.78rem; font-family:monospace; resize:vertical; min-height:80px;"
+                onchange="saveLookupConfig()" placeholder='{"key":"model","data":{"ABC-123":{"spec1":"100mm","spec2":"50mm"},"XYZ-789":{"spec1":"200mm","spec2":"80mm"}}}'></textarea>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">打印时如果规格字段为空，自动按型号补齐</div>
+        </div>
         <div style="margin-top:14px; text-align:right;">
             <button class="btn btn-primary" style="padding:8px 24px; font-size:0.85rem; margin-bottom:0; flex:none;" 
                 onclick="closeFieldSettings()">✓ 完成</button>

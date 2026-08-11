@@ -8,32 +8,38 @@ let batchRows = [];
 let printLog = [];
 
 // ===== 标签页隔离 =====
+var sessionId = '';
+try { sessionId = localStorage.getItem('bt_lastSession') || ''; } catch (e) { }
+if (!sessionId) {
+    sessionId = Date.now().toString(36);
+    try { localStorage.setItem('bt_lastSession', sessionId); } catch (e) { }
+}
+
 var tabId = window.name || '';
 if (!tabId) {
-    tabId = Math.random().toString(36).slice(2, 8);
-    window.name = tabId;
+    try { tabId = localStorage.getItem('bt_lastTabId') || ''; } catch (e) { }
 }
+if (!tabId) {
+    tabId = Math.random().toString(36).slice(2, 8);
+}
+window.name = tabId;
+try { localStorage.setItem('bt_lastTabId', tabId); } catch (e) { }
 function storageKey(base) {
-    return 'bt_' + tabId + '_' + base;
+    return 'bt_' + sessionId + '_' + tabId + '_' + base;
 }
 function updateTabRegistry() {
     var list = {};
     try { list = JSON.parse(localStorage.getItem('bt_tabList') || '{}'); } catch (e) {}
-    list[tabId] = Date.now();
+    list[sessionId + '_' + tabId] = Date.now();
     var cutoff = Date.now() - 30 * 24 * 3600 * 1000;
     for (var id in list) {
         if (list[id] < cutoff) {
             delete list[id];
-            ['customFieldDefs', 'batchTableData', 'printLog', 'btPrinterName',
-             'btUseDefaultPrinter', 'btServiceUrl', 'qrFormat', 'btCopies'].forEach(function (suffix) {
-                localStorage.removeItem('bt_' + id + '_' + suffix);
-            });
-            var mappingPrefix = 'bt_' + id + '_btMapping_';
-            // 先收集再删除，避免迭代中修改 localStorage 导致跳过
+            var prefix = 'bt_' + id + '_';
             var toRemove = [];
             for (var i = 0; i < localStorage.length; i++) {
                 var mk = localStorage.key(i);
-                if (mk && mk.indexOf(mappingPrefix) === 0) toRemove.push(mk);
+                if (mk && mk.indexOf(prefix) === 0) toRemove.push(mk);
             }
             toRemove.forEach(function (k) { localStorage.removeItem(k); });
         }
@@ -45,6 +51,12 @@ function updateTabRegistry() {
 const BARTENDER_SERVICE_URL = (localStorage.getItem(storageKey('btServiceUrl')) || 'http://localhost:8000');
 let _mappingCache = null;
 let _mappingTemplate = null;
+var _lookupCache = (function () {
+    try {
+        var v = localStorage.getItem(storageKey('lookupConfig'));
+        return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+})();
 
 // ===== 初始化 =====
 window.onload = function () {
@@ -221,7 +233,8 @@ var _selectedBatchRow = -1;
 
 function showTabImport() {
     var list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
-    var tabs = Object.keys(list).filter(function (id) { return id !== tabId; });
+    var myKey = sessionId + '_' + tabId;
+    var tabs = Object.keys(list).filter(function (id) { return id !== myKey; });
 
     var container = document.getElementById('tabImportList');
     if (tabs.length === 0) {
@@ -237,12 +250,13 @@ function showTabImport() {
                 var br = JSON.parse(localStorage.getItem('bt_' + id + '_batchTableData') || '[]');
                 batchCount = br.length;
             } catch (e) { }
+            var display = id.replace(myKey, '').replace(sessionId + '_', '') || id;
             return '<label style="display:flex; align-items:center; padding:10px 12px; background:var(--surface2); ' +
                 'border-radius:8px; cursor:pointer; border:2px solid var(--border);' +
                 '" onclick="selectImportTab(\'' + id + '\', this)" data-tab-id="' + id + '">' +
                 '<input type="radio" name="importTab" style="margin-right:10px;">' +
                 '<div style="flex:1;">' +
-                '<div style="font-weight:600; font-size:0.85rem;">标签页 ' + id + '</div>' +
+                '<div style="font-weight:600; font-size:0.85rem;">标签页</div>' +
                 '<div style="font-size:0.72rem; color:var(--text-muted);">最后活动: ' + time +
                 ' | ' + fieldCount + ' 个字段 | ' + batchCount + ' 条数据</div>' +
                 '</div></label>';
@@ -292,7 +306,7 @@ function importAllFromTab() {
     copyKey('qrFormat');
 
     var mappingPrefix = 'bt_' + _selectedImportTabId + '_btMapping_';
-    var destPrefix = 'bt_' + tabId + '_btMapping_';
+    var destPrefix = storageKey('btMapping_');
     for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
         if (k && k.indexOf(mappingPrefix) === 0) {
@@ -391,6 +405,37 @@ function onEntryFieldChange(index, value) {
         var cache = loadEntryCache();
         cache[fd.key] = value;
         saveEntryCache(cache);
+
+        if (_lookupCache && _lookupCache.data && fd.key === _lookupCache.key) {
+            var model = (value || '').trim();
+            if (model) {
+                var table = _lookupCache.data;
+                var row = table[model];
+                if (!row) {
+                    for (var k in table) {
+                        if (model.indexOf(k) >= 0) { row = table[k]; break; }
+                    }
+                }
+                if (row) {
+                    var changed = false;
+                    for (var f in row) {
+                        if (cache[f] !== row[f]) {
+                            cache[f] = row[f];
+                            changed = true;
+                            var fi = -1;
+                            for (var j = 0; j < fieldDefs.length; j++) {
+                                if (fieldDefs[j].key === f) { fi = j; break; }
+                            }
+                            if (fi >= 0) {
+                                var el = document.getElementById('ef_' + fi);
+                                if (el) { el.value = row[f]; el.title = row[f]; }
+                            }
+                        }
+                    }
+                    if (changed) saveEntryCache(cache);
+                }
+            }
+        }
     }
     updateDataPreview();
 }
@@ -509,6 +554,41 @@ function exportQrFormat() {
     a.download = 'qr_format_' + new Date().toISOString().slice(0, 10) + '.txt';
     a.click();
     URL.revokeObjectURL(url);
+}
+
+function exportLookup() {
+    var val = document.getElementById('lookupInput').value.trim();
+    if (!val) return alert('查询表为空');
+    var blob = new Blob([val], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'lookup_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importLookup() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function () {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+            try {
+                JSON.parse(reader.result);
+                document.getElementById('lookupInput').value = reader.result;
+                saveLookupConfig();
+                setBtStatus('查询表已导入', '#16a34a');
+            } catch (e) {
+                alert('无效的 JSON 文件');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
 }
 
 function saveToBatch() {
@@ -644,7 +724,7 @@ function rebuildBatchTable() {
                 }
                 return '<td><input type="text" value="' + escHtml(String(val)) + '" ' +
                     'data-row="' + ri + '" data-col="' + fi + '" ' +
-                    'oninput="var inp=document.querySelector(\'#batchTableBody input[data-row=' + ri + '][data-col=' + fi + ']\');if(inp)inp.title=inp.value||\'(空)\'" ' +
+                    'oninput="onBatchCellInput(' + ri + ', ' + fi + ', this)" ' +
                     'onchange="updateBatchCellByIndex(' + ri + ', ' + fi + ', this.value)" ' +
                     'title="' + escAttr(String(val || '(空)')) + '"></td>';
             }).join('') +
@@ -786,13 +866,45 @@ function updateBatchCell(rowIndex, key, value) {
     saveBatchRows();
 }
 
+function onBatchCellInput(rowIndex, colIndex, el) {
+    el.title = el.value || '(空)';
+}
+
 function updateBatchCellByIndex(rowIndex, colIndex, value) {
     if (!batchRows[rowIndex] || colIndex >= fieldDefs.length) return;
-    batchRows[rowIndex][fieldDefs[colIndex].key] = value;
+    var fd = fieldDefs[colIndex];
+    batchRows[rowIndex][fd.key] = value;
     saveBatchRows();
-    // 同步更新 title 显示完整值
     var inp = document.querySelector('#batchTableBody input[data-row="' + rowIndex + '"][data-col="' + colIndex + '"]');
     if (inp) inp.title = value || '(空)';
+
+    if (_lookupCache && _lookupCache.data && fd.key === _lookupCache.key) {
+        var model = (value || '').trim();
+        if (model) {
+            var table = _lookupCache.data;
+            var row = table[model];
+            if (!row) {
+                for (var k in table) {
+                    if (model.indexOf(k) >= 0) { row = table[k]; break; }
+                }
+            }
+            if (row) {
+                for (var f in row) {
+                    if (batchRows[rowIndex][f] !== row[f]) {
+                        batchRows[rowIndex][f] = row[f];
+                        for (var j = 0; j < fieldDefs.length; j++) {
+                            if (fieldDefs[j].key === f && j !== colIndex) {
+                                var el = document.querySelector('#batchTableBody input[data-row="' + rowIndex + '"][data-col="' + j + '"]');
+                                if (el) { el.value = row[f]; el.title = row[f]; }
+                                break;
+                            }
+                        }
+                    }
+                }
+                saveBatchRows();
+            }
+        }
+    }
 }
 
 function autoGenerate() {
@@ -1031,10 +1143,17 @@ async function loadConfig(name) {
         if (typeof config.qrFormat === 'string') {
             localStorage.setItem(storageKey('qrFormat'), config.qrFormat);
         }
-        // 应用字段映射（存到当前模板名下）
+        // 应用字段映射（存到当前模板名下 + 默认映射）
         var templateName = document.getElementById('btTemplateSelect').value;
         if (config.mapping && Array.isArray(config.mapping)) {
             localStorage.setItem(storageKey('btMapping_' + templateName), JSON.stringify(config.mapping));
+            localStorage.setItem(storageKey('btMapping___default__'), JSON.stringify(config.mapping));
+        }
+        // 缓存 lookup 查询表
+        if (config.lookup && config.lookup.key && config.lookup.data) {
+            _lookupCache = config.lookup;
+        } else {
+            _lookupCache = null;
         }
 
         // 重新加载并刷新
@@ -1108,18 +1227,34 @@ function getDefaultMapping() {
 }
 
 function getFieldMappingFor(templateName) {
-    var key = storageKey('btMapping_' + templateName);
-    if (_mappingCache && _mappingTemplate === templateName) return _mappingCache;
+    var key = storageKey('btMapping_' + (templateName || '__default__'));
     var saved = localStorage.getItem(key);
     if (saved) {
         try {
-            _mappingCache = JSON.parse(saved);
-            _mappingTemplate = templateName;
-            return _mappingCache;
+            var m = JSON.parse(saved);
+            if (Array.isArray(m) && m.length > 0) {
+                _mappingCache = m;
+                _mappingTemplate = templateName || '';
+                return m;
+            }
         } catch (e) { /* fall through */ }
     }
+    if (templateName) {
+        var defaultKey = storageKey('btMapping___default__');
+        var defaultSaved = localStorage.getItem(defaultKey);
+        if (defaultSaved) {
+            try {
+                var dm = JSON.parse(defaultSaved);
+                if (Array.isArray(dm) && dm.length > 0) {
+                    _mappingCache = dm;
+                    _mappingTemplate = templateName;
+                    return dm;
+                }
+            } catch (e) { /* fall through */ }
+        }
+    }
     _mappingCache = getDefaultMapping();
-    _mappingTemplate = templateName;
+    _mappingTemplate = templateName || '';
     return _mappingCache;
 }
 
@@ -1212,11 +1347,13 @@ function buildMappingPanel() {
             });
             sel.setAttribute('data-mapping-idx', idx);
             sel.setAttribute('data-mapping-prop', 'key');
+            sel._initDone = true;
             sel.onchange = function () {
                 _mappingCache[parseInt(this.getAttribute('data-mapping-idx'))].key = this.value;
                 if (this.value) {
                     _mappingCache[parseInt(this.getAttribute('data-mapping-idx'))].source = 'form';
                 }
+                if (this._initDone) { this._initDone = false; return; }
                 persistMapping();
             };
             div.appendChild(sel);
@@ -1408,6 +1545,29 @@ function enablePrintButtons() {
     if (batchBtn) batchBtn.disabled = false;
 }
 
+function applyLookup(data) {
+    if (!_lookupCache || !data) return data;
+    var keyField = _lookupCache.key;
+    var model = (data[keyField] || '').trim();
+    if (!model) return data;
+    var table = _lookupCache.data;
+    // 先精确匹配
+    var row = table[model];
+    // 再模糊匹配
+    if (!row) {
+        for (var k in table) {
+            if (model.indexOf(k) >= 0) { row = table[k]; break; }
+        }
+    }
+    if (!row) return data;
+    for (var f in row) {
+        if (!data[f] || data[f].trim() === '') {
+            data[f] = row[f];
+        }
+    }
+    return data;
+}
+
 function singleSendToBartender() {
     var templateName = document.getElementById('btTemplateSelect').value;
     var useDefault = document.getElementById('btUseDefaultPrinter').checked;
@@ -1424,6 +1584,7 @@ function singleSendToBartender() {
     }
 
     var fields = getEntryFormData();
+    applyLookup(fields);
     var printData = getBtPrintData(fields);
 
     disablePrintButtons();
@@ -1467,6 +1628,7 @@ function batchSendToBartender() {
             return;
         }
         try {
+            applyLookup(rows[index]);
             var printData = getBtPrintData(rows[index]);
             var resp = await fetch(getBtServiceUrl() + '/api/v1/print', {
                 method: 'POST',
@@ -1591,6 +1753,7 @@ function refreshAll() {
 function openFieldSettings() {
     updateQrFormatInput();
     updateQrFormatHint();
+    restoreLookupInput();
     document.getElementById('fieldSettingsOverlay').style.display = 'flex';
 }
 
@@ -1617,6 +1780,33 @@ function restoreEntryFormData(data) {
             el.value = data[fd.key];
         }
     });
+}
+
+function saveLookupConfig() {
+    var val = document.getElementById('lookupInput').value.trim();
+    if (val) {
+        try {
+            _lookupCache = JSON.parse(val);
+            localStorage.setItem(storageKey('lookupConfig'), val);
+        } catch (e) {
+            _lookupCache = null;
+        }
+    } else {
+        _lookupCache = null;
+        localStorage.removeItem(storageKey('lookupConfig'));
+    }
+}
+
+function restoreLookupInput() {
+    var el = document.getElementById('lookupInput');
+    if (!el) return;
+    var saved = localStorage.getItem(storageKey('lookupConfig'));
+    if (saved) {
+        el.value = saved;
+        try { _lookupCache = JSON.parse(saved); } catch (e) { _lookupCache = null; }
+    } else {
+        el.value = '';
+    }
 }
 
 function updateQrFormatInput() {
