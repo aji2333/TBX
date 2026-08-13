@@ -6,6 +6,7 @@ const ASSETS = [
     'src/js/app.js',
     'src/js/state.js',
     'src/js/api.js',
+    'src/js/store.js',
     'src/js/utils.js',
     'src/js/ui.js',
     'qrcode.min.js'
