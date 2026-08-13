@@ -1793,7 +1793,7 @@ export const ui = {
                     const br = JSON.parse(data.batchTableData || '[]');
                     batchCount = br.length;
                     const entry = JSON.parse(data.entryFormData || '{}');
-                    const key = this.findFieldKey(fd, ['工作令', 'gongzuoling', 'po', 'po号', '批号', 'pihao', '盘品号', 'panpinhao']);
+                    const key = this.findFieldKey(fd, ['规格', 'guige', 'spec']);
                     if (key) {
                         let val = '';
                         for (let r = 0; r < br.length; r++) {
