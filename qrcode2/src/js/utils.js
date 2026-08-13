@@ -29,22 +29,6 @@ export function autoIncrementValue(val) {
     return val;
 }
 
-export function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        return navigator.clipboard.writeText(text);
-    } else {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        var success = document.execCommand('copy');
-        document.body.removeChild(ta);
-        return success ? Promise.resolve() : Promise.reject();
-    }
-}
-
 export function buildQRData(fields, fieldDefs, qrFormat) {
     const format = qrFormat || '';
     return format.replace(/\{(\w+)\}/g, function (match, key) {

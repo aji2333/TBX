@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { store } from './store.js';
 import * as api from './api.js';
 import * as utils from './utils.js';
 
@@ -18,10 +19,6 @@ export const ui = {
 
     init() {
         this.bindEvents();
-        if (state.isNewTab) {
-            const latest = state.latestTabId();
-            if (latest) this.copyDataFromTab(latest);
-        }
         this.refreshAll();
         this.refreshTemplates();
         this.refreshConfigs();
@@ -522,7 +519,7 @@ export const ui = {
 
     loadEntryCache() {
         try {
-            const saved = localStorage.getItem(state.storageKey('entryFormData'));
+            const saved = store.getItem(state.storageKey('entryFormData'));
             if (saved) return JSON.parse(saved);
         } catch (e) { }
         return {};
@@ -530,7 +527,7 @@ export const ui = {
 
     saveEntryCache(cache) {
         try {
-            localStorage.setItem(state.storageKey('entryFormData'), JSON.stringify(cache));
+            store.setItem(state.storageKey('entryFormData'), JSON.stringify(cache));
         } catch (e) { }
     },
 
@@ -613,8 +610,6 @@ export const ui = {
         const data = this.getEntryFormData();
         state.batchRows.push(data);
         state.saveBatchRows();
-        this.saveEntryCache({});
-        this.clearEntryForm();
         this.rebuildBatchTable();
         this.updateBatchCount();
         this.updateDataPreview();
@@ -658,7 +653,7 @@ export const ui = {
         const table = document.getElementById('batchTable');
         if (!table) return;
         let widths = {};
-        try { widths = JSON.parse(localStorage.getItem(state.storageKey('colWidths')) || '{}'); } catch (e) { return; }
+        try { widths = JSON.parse(store.getItem(state.storageKey('colWidths')) || '{}'); } catch (e) { return; }
         const colKeys = Object.keys(widths);
         if (colKeys.length === 0) return;
 
@@ -713,9 +708,9 @@ export const ui = {
         });
 
         let widths = {};
-        try { widths = JSON.parse(localStorage.getItem(state.storageKey('colWidths')) || '{}'); } catch (e) { }
+        try { widths = JSON.parse(store.getItem(state.storageKey('colWidths')) || '{}'); } catch (e) { }
         widths[colIndex] = w;
-        localStorage.setItem(state.storageKey('colWidths'), JSON.stringify(widths));
+        store.setItem(state.storageKey('colWidths'), JSON.stringify(widths));
     },
 
     rebuildBatchTable() {
@@ -1049,22 +1044,22 @@ export const ui = {
             const config = await api.fetchConfigDetails(state.bartenderServiceUrl, name);
 
             if (config.fieldDefs && Array.isArray(config.fieldDefs)) {
-                localStorage.setItem(state.storageKey('customFieldDefs'), JSON.stringify(config.fieldDefs));
+                store.setItem(state.storageKey('customFieldDefs'), JSON.stringify(config.fieldDefs));
             }
             if (typeof config.qrFormat === 'string') {
-                localStorage.setItem(state.storageKey('qrFormat'), config.qrFormat);
+                store.setItem(state.storageKey('qrFormat'), config.qrFormat);
             }
             const templateName = document.getElementById('btTemplateSelect').value;
             if (config.mapping && Array.isArray(config.mapping)) {
-                localStorage.setItem(state.storageKey('btMapping_' + templateName), JSON.stringify(config.mapping));
-                localStorage.setItem(state.storageKey('btMapping___default__'), JSON.stringify(config.mapping));
+                store.setItem(state.storageKey('btMapping_' + templateName), JSON.stringify(config.mapping));
+                store.setItem(state.storageKey('btMapping___default__'), JSON.stringify(config.mapping));
             }
             if (config.lookup && config.lookup.key && config.lookup.data) {
                 state.lookupCache = config.lookup;
-                localStorage.setItem(state.storageKey('lookupConfig'), JSON.stringify(config.lookup));
+                store.setItem(state.storageKey('lookupConfig'), JSON.stringify(config.lookup));
             } else {
                 state.lookupCache = null;
-                localStorage.removeItem(state.storageKey('lookupConfig'));
+                store.removeItem(state.storageKey('lookupConfig'));
             }
 
             state.loadFieldDefs();
@@ -1091,7 +1086,7 @@ export const ui = {
         const input = document.getElementById('btPrinterName');
         input.disabled = useDefault;
         input.style.opacity = useDefault ? '0.4' : '1';
-        localStorage.setItem(state.storageKey('btUseDefaultPrinter'), useDefault);
+        store.setItem(state.storageKey('btUseDefaultPrinter'), useDefault);
     },
 
     onTemplateChange() {
@@ -1101,17 +1096,17 @@ export const ui = {
     },
 
     restoreBartenderSettings() {
-        const savedPrinter = localStorage.getItem(state.storageKey('btPrinterName'));
+        const savedPrinter = store.getItem(state.storageKey('btPrinterName'));
         if (savedPrinter) document.getElementById('btPrinterName').value = savedPrinter;
         document.getElementById('btPrinterName').addEventListener('change', function () {
-            localStorage.setItem(state.storageKey('btPrinterName'), this.value);
+            store.setItem(state.storageKey('btPrinterName'), this.value);
         });
-        const useDefault = localStorage.getItem(state.storageKey('btUseDefaultPrinter')) === 'true';
+        const useDefault = store.getItem(state.storageKey('btUseDefaultPrinter')) === 'true';
         document.getElementById('btUseDefaultPrinter').checked = useDefault;
-        const savedCopies = localStorage.getItem(state.storageKey('btCopies'));
+        const savedCopies = store.getItem(state.storageKey('btCopies'));
         if (savedCopies) document.getElementById('btCopies').value = savedCopies;
         document.getElementById('btCopies').addEventListener('change', function () {
-            localStorage.setItem(state.storageKey('btCopies'), this.value);
+            store.setItem(state.storageKey('btCopies'), this.value);
         });
     },
 
@@ -1137,7 +1132,7 @@ export const ui = {
 
     getFieldMappingFor(templateName) {
         const key = state.storageKey('btMapping_' + (templateName || '__default__'));
-        const saved = localStorage.getItem(key);
+        const saved = store.getItem(key);
         if (saved) {
             try {
                 const m = JSON.parse(saved);
@@ -1150,7 +1145,7 @@ export const ui = {
         }
         if (templateName) {
             const defaultKey = state.storageKey('btMapping___default__');
-            const defaultSaved = localStorage.getItem(defaultKey);
+            const defaultSaved = store.getItem(defaultKey);
             if (defaultSaved) {
                 try {
                     const dm = JSON.parse(defaultSaved);
@@ -1170,7 +1165,7 @@ export const ui = {
     persistMapping() {
         const templateName = document.getElementById('btTemplateSelect').value;
         if (!templateName) return;
-        localStorage.setItem(state.storageKey('btMapping_' + templateName), JSON.stringify(state.mappingCache));
+        store.setItem(state.storageKey('btMapping_' + templateName), JSON.stringify(state.mappingCache));
         state.mappingTemplate = templateName;
     },
 
@@ -1381,7 +1376,7 @@ export const ui = {
         if (!confirm('确定重置为默认映射吗？')) return;
         state.mappingCache = this.getDefaultMapping();
         state.mappingTemplate = templateName || '__default__';
-        localStorage.removeItem(state.storageKey('btMapping_' + templateName));
+        store.removeItem(state.storageKey('btMapping_' + templateName));
         this.buildMappingPanel();
         this.setBtStatus('已重置为默认映射', '#64748b');
     },
@@ -1741,7 +1736,7 @@ export const ui = {
     restoreLookupInput() {
         const el = document.getElementById('lookupInput');
         if (!el) return;
-        const saved = localStorage.getItem(state.storageKey('lookupConfig'));
+        const saved = store.getItem(state.storageKey('lookupConfig'));
         if (saved) {
             el.value = saved;
             try { state.lookupCache = JSON.parse(saved); } catch (e) { state.lookupCache = null; }
@@ -1757,46 +1752,80 @@ export const ui = {
     },
 
     // Tab inherit logic
-    showTabImport() {
-        const list = JSON.parse(localStorage.getItem('bt_tabList') || '{}');
-        const myKey = state.sessionId + '_' + state.tabId;
-        const tabs = Object.keys(list).filter((id) => id !== myKey);
-
-        const container = document.getElementById('tabImportList');
-        if (tabs.length === 0) {
-            container.innerHTML = '<div class="empty-tip">没有其他标签页可继承</div>';
-        } else {
-            container.innerHTML = tabs.map((id) => {
-                const time = new Date(list[id]).toLocaleString('zh-CN');
-                let fieldCount = '-';
-                let batchCount = '-';
-                try {
-                    const fd = JSON.parse(localStorage.getItem('bt_' + id + '_customFieldDefs') || '[]');
-                    fieldCount = fd.length;
-                    const br = JSON.parse(localStorage.getItem('bt_' + id + '_batchTableData') || '[]');
-                    batchCount = br.length;
-                } catch (e) { }
-                return '<label style="display:flex; align-items:center; padding:10px 12px; background:var(--surface2); ' +
-                    'border-radius:8px; cursor:pointer; border:2px solid var(--border);' +
-                    '" class="tab-import-row" data-tab-id="' + id + '">' +
-                    '<input type="radio" name="importTab" style="margin-right:10px;">' +
-                    '<div style="flex:1;">' +
-                    '<div style="font-weight:600; font-size:0.85rem;">标签页</div>' +
-                    '<div style="font-size:0.72rem; color:var(--text-muted);">最后活动: ' + time +
-                    ' | ' + fieldCount + ' 个字段 | ' + batchCount + ' 条数据</div>' +
-                    '</div></label>';
-            }).join('');
-
-            container.querySelectorAll('.tab-import-row').forEach(row => {
-                row.addEventListener('click', (e) => {
-                    const targetId = row.getAttribute('data-tab-id');
-                    this.selectImportTab(targetId, row);
-                });
-            });
+    findFieldKey(fieldDefs, candidates) {
+        const cLower = candidates.map((c) => String(c).toLowerCase());
+        for (const fd of fieldDefs) {
+            const lbl = (fd.label || '').toLowerCase();
+            const key = (fd.key || '').toLowerCase();
+            for (const c of cLower) {
+                if (lbl.indexOf(c) >= 0 || key.indexOf(c) >= 0) return fd.key;
+            }
         }
+        return '';
+    },
+
+    showTabImport() {
+        const myTabId = state.tabId;
+        const container = document.getElementById('tabImportList');
         this.selectedImportTabId = null;
         document.getElementById('tabImportConfirmBtn').disabled = true;
         this.showOverlay('tabImportOverlay');
+
+        const tabs = store.listTabs();
+        const others = tabs.filter((t) => t.tabId !== myTabId);
+
+        if (others.length === 0) {
+            container.innerHTML = '<div class="empty-tip">没有其他标签页可继承</div>';
+            return;
+        }
+
+        const rows = [];
+        for (const t of others) {
+            const time = new Date(t.updatedAt).toLocaleString('zh-CN');
+            let fieldCount = '-';
+            let batchCount = '-';
+            let title = '标签页';
+            const data = store.loadTabState(t.tabId);
+            if (data) {
+                try {
+                    const fd = JSON.parse(data.customFieldDefs || '[]');
+                    fieldCount = fd.length;
+                    const br = JSON.parse(data.batchTableData || '[]');
+                    batchCount = br.length;
+                    const entry = JSON.parse(data.entryFormData || '{}');
+                    const key = this.findFieldKey(fd, ['工作令', 'gongzuoling', 'po', 'po号', '批号', 'pihao', '盘品号', 'panpinhao']);
+                    if (key) {
+                        let val = '';
+                        for (let r = 0; r < br.length; r++) {
+                            if (br[r] && br[r][key]) { val = br[r][key]; break; }
+                        }
+                        if (!val && entry) val = entry[key] || '';
+                        if (val) title = String(val);
+                    }
+                } catch (e) { }
+            }
+            if (fieldCount === 0 && batchCount === 0) continue;
+            rows.push({ id: t.tabId, time, fieldCount, batchCount, title });
+        }
+
+        container.innerHTML = rows.map((r) => {
+            return '<label style="display:flex; align-items:center; padding:10px 12px; background:var(--surface2); ' +
+                'border-radius:8px; cursor:pointer; border:2px solid var(--border);' +
+                '" class="tab-import-row" data-tab-id="' + r.id + '">' +
+                '<input type="radio" name="importTab" style="margin-right:10px;">' +
+                '<div style="flex:1;">' +
+                '<div style="font-weight:600; font-size:0.85rem;">' + utils.escHtml(r.title) + '</div>' +
+                '<div style="font-size:0.72rem; color:var(--text-muted);">最后活动: ' + r.time +
+                ' | ' + r.fieldCount + ' 个字段 | ' + r.batchCount + ' 条数据</div>' +
+                '</div></label>';
+        }).join('');
+
+        container.querySelectorAll('.tab-import-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const targetId = row.getAttribute('data-tab-id');
+                this.selectImportTab(targetId, row);
+            });
+        });
     },
 
     closeTabImport() {
@@ -1824,45 +1853,23 @@ export const ui = {
         this.copyDataFromTab(this.selectedImportTabId);
         this.closeTabImport();
         this.refreshAll();
-        const savedCopies = localStorage.getItem(state.storageKey('btCopies'));
+        const savedCopies = store.getItem(state.storageKey('btCopies'));
         if (savedCopies) document.getElementById('btCopies').value = savedCopies;
-        const savedPrinter = localStorage.getItem(state.storageKey('btPrinterName'));
+        const savedPrinter = store.getItem(state.storageKey('btPrinterName'));
         if (savedPrinter) document.getElementById('btPrinterName').value = savedPrinter;
-        document.getElementById('btUseDefaultPrinter').checked = localStorage.getItem(state.storageKey('btUseDefaultPrinter')) === 'true';
+        document.getElementById('btUseDefaultPrinter').checked = store.getItem(state.storageKey('btUseDefaultPrinter')) === 'true';
         this.onDefaultPrinterChange();
         this.setBtStatus('已从标签页 ' + this.selectedImportTabId + ' 继承全部内容', '#16a34a');
     },
 
     copyDataFromTab(sourceId) {
-        const copyKey = (suffix) => {
-            const src = localStorage.getItem('bt_' + sourceId + '_' + suffix);
-            if (src !== null) {
-                localStorage.setItem(state.storageKey(suffix), src);
+        const data = store.loadTabState(sourceId);
+        if (data && typeof data === 'object') {
+            for (const key in data) {
+                store.setItem(state.storageKey(key), data[key]);
             }
-        };
-
-        copyKey('customFieldDefs');
-        copyKey('batchTableData');
-        copyKey('printLog');
-        copyKey('btPrinterName');
-        copyKey('btUseDefaultPrinter');
-        copyKey('btCopies');
-        copyKey('btServiceUrl');
-        copyKey('qrFormat');
-        copyKey('lookupConfig');
-        copyKey('entryFormData');
-        copyKey('colWidths');
-
-        const mappingPrefix = 'bt_' + sourceId + '_btMapping_';
-        const destPrefix = state.storageKey('btMapping_');
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.indexOf(mappingPrefix) === 0) {
-                const suffix = k.substring(mappingPrefix.length);
-                localStorage.setItem(destPrefix + suffix, localStorage.getItem(k));
-            }
+            store.updateTabRegistry();
         }
-
         state.loadFieldDefs();
         state.loadBatchRows();
         state.loadPrintLog();
