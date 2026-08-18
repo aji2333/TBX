@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BarTender 批量标签打印</title>
+<link rel="stylesheet" href="style.css">
+<style>
+    .field-def-item {
+        display: flex; gap: 8px; align-items: center;
+        padding: 8px 10px; background: var(--surface2);
+        border-radius: 7px; margin-bottom: 6px;
+        flex-wrap: wrap;
+    }
+    .field-def-item input {
+        padding: 6px 8px; border: 1px solid var(--border);
+        border-radius: 5px; font-size: 0.82rem; min-width: 0;
+    }
+    .field-def-item .fd-key { width: 90px; }
+    .field-def-item .fd-label { width: 80px; }
+    .field-def-item .fd-default { flex: 1; min-width: 80px; }
+    .field-def-item .fd-badges {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .fd-badge {
+        font-size: 0.68rem; padding: 2px 7px; border-radius: 10px;
+        cursor: pointer; border: 1px solid; user-select: none;
+        white-space: nowrap; transition: all 0.15s;
+    }
+    .fd-badge.locked-on { background: #fef3c7; color: #92400e; border-color: #fbbf24; }
+    .fd-badge.locked-off { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+    .fd-badge.incr-on { background: #dbeafe; color: #2563eb; border-color: #93c5fd; }
+    .fd-badge.incr-off { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+    .fd-badge.qr-on { background: #ede9fe; color: #7c3aed; border-color: #c4b5fd; }
+    .fd-badge.qr-off { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+    .fd-del {
+        background: none; border: none; color: #ef4444; cursor: pointer;
+        font-size: 1.1rem; padding: 2px 6px; border-radius: 4px; line-height: 1;
+    }
+    .fd-del:hover { background: #fef2f2; }
+    .data-preview-table {
+        width: 100%; border-collapse: collapse; font-size: 0.78rem;
+    }
+    .data-preview-table th, .data-preview-table td {
+        padding: 6px 8px; border: 1px solid var(--border); text-align: left;
+    }
+    .data-preview-table th {
+        background: var(--surface2); font-weight: 600; color: var(--text-muted);
+        font-size: 0.72rem; text-transform: uppercase;
+    }
+    .section-header {
+        display: flex; justify-content: space-between; align-items: center;
+        cursor: pointer; user-select: none;
+    }
+    .section-header .arrow { transition: transform 0.2s; }
+    .section-header.collapsed .arrow { transform: rotate(-90deg); }
+    .section-body { transition: max-height 0.3s ease; overflow: hidden; }
+    .section-body.collapsed { max-height: 0 !important; }
+    .batch-row-selected td { background: #eef2ff !important; }
+    .batch-row-selected td input { background: #eef2ff !important; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>▦ BarTender 批量标签打印系统</h1>
+    <span></span>
+</header>
+
+<div class="app">
+    <!-- LEFT PANEL -->
+    <div class="form-panel">
+        <!-- 字段配置概要 -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="card-title" style="margin-bottom:0; padding-bottom:0; border:none;">📋 字段配置</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <select id="configSelect" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px; font-size:0.75rem; background:#fff; max-width:140px;">
+                        <option value="">— 加载配置 —</option>
+                    </select>
+                    <button id="refreshConfigsBtn" class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem; margin-bottom:0;" title="刷新配置列表">↻</button>
+                    <button id="openFieldSettingsBtn" class="btn btn-secondary" style="padding:4px 10px; font-size:0.85rem; margin-bottom:0; color:#7c3aed; border-color:#c4b5fd;" title="打开字段设置面板">⚙</button>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:0.78rem; color:var(--text-muted);">
+                <span id="fieldStats">0 个字段</span>
+                <span style="margin-left:12px;" id="qrStats">QR: —</span>
+            </div>
+        </div>
+
+        <!-- 单条录入 -->
+        <div class="card">
+            <div class="card-title">✏️ 单条录入</div>
+            <div id="entryForm"></div>
+            <div class="action-row" style="margin-top:12px;">
+                <button id="saveToBatchBtn" class="btn btn-secondary" style="flex:1;">📋 保存到批量表</button>
+                <button id="clearEntryFormBtn" class="btn btn-secondary" style="flex:0;">↺ 清空</button>
+            </div>
+        </div>
+
+        <!-- 批量数据 -->
+        <div class="card" id="batchCard">
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>📋 批量数据 <span id="batchCount" style="font-weight:400; color:var(--text-muted);">(0条)</span></span>
+                <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; border-color:var(--primary); color:var(--primary);" id="zoomBtn">🔍 全屏编辑</button>
+            </div>
+            <div id="batchTableWrap" style="overflow-x:auto; margin-bottom:10px; border:1px solid var(--border); border-radius:6px;">
+                <table id="batchTable" style="border-collapse:collapse; font-size:0.82rem;">
+                    <thead id="batchTableHead"></thead>
+                    <tbody id="batchTableBody"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="addBatchRowBtn" class="btn btn-secondary" style="flex:1; min-width:80px; margin-bottom:0; font-size:0.82rem;">＋ 添加行</button>
+                <button id="autoGenerateBtn" class="btn btn-secondary" style="flex:1; min-width:120px; margin-bottom:0; font-size:0.82rem; color:#2563eb; border-color:#bfdbfe; background:#eff6ff;">✨ 智能递增</button>
+                <button id="clearBatchTableBtn" class="btn btn-secondary" style="flex:1; min-width:80px; margin-bottom:0; font-size:0.82rem;">✕ 清空</button>
+                <button id="batchSendToBartenderBtn" class="btn btn-primary" style="flex:2; min-width:140px; margin-bottom:0; font-size:0.85rem;">📦 批量发送至 BarTender</button>
+            </div>
+            <div style="margin-top:8px; font-size:0.72rem; color:var(--text-muted); line-height:1.6;">
+                提示：可直接从 Excel 复制多行数据粘贴到表格 · Enter 下移一行 · Tab 右移一格 · ⧉ 复制当前行 · Ctrl+Z 撤销 · Ctrl+Y 重做
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="preview-panel">
+        <!-- 数据预览 -->
+        <div class="card">
+            <div class="card-title">📊 数据预览</div>
+            <div id="dataPreview" style="max-height:260px; overflow-y:auto;">
+                <div class="empty-tip">请录入数据</div>
+            </div>
+        </div>
+
+        <!-- BarTender 打印设置 -->
+        <div class="card">
+            <div class="card-title">🖨 BarTender 专业打印</div>
+            <div style="margin-bottom:10px;">
+                <label for="btPrinterName" style="font-size:0.82rem; color:var(--text-muted);">打印机名称</label>
+                <div style="display:flex; gap:6px; margin-top:4px;">
+                    <input type="text" id="btPrinterName" placeholder="例: Gprinter GP-3120TU" style="flex:1; padding:8px; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
+                    <label style="display:flex; align-items:center; gap:4px; font-size:0.78rem; color:var(--text-muted); cursor:pointer; white-space:nowrap;" title="勾选后使用 BarTender 模板预设的打印机">
+                        <input type="checkbox" id="btUseDefaultPrinter" checked> 模板默认
+                    </label>
+                </div>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label for="btTemplateSelect" style="font-size:0.82rem; color:var(--text-muted);">BarTender 模板</label>
+                <div style="display:flex; gap:6px; margin-top:4px;">
+                    <select id="btTemplateSelect" style="flex:1; padding:8px; border:1px solid var(--border); border-radius:4px; font-size:0.85rem; background:#fff;">
+                        <option value="">— 请选择模板 —</option>
+                    </select>
+                    <button id="refreshTemplatesBtn" class="btn btn-secondary" style="padding:8px 12px; margin-bottom:0; font-size:0.8rem;" title="刷新模板列表">↻</button>
+                    <button class="btn btn-secondary" style="padding:8px 10px; margin-bottom:0; font-size:0.8rem;" id="btMappingBtn" title="配置字段映射">⚙</button>
+                </div>
+            </div>
+            <div id="btMappingPanel" style="display:none; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:10px;">
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">
+                    字段映射 — 左侧为自定义字段key，右侧为模板变量名。固定值直接填入。
+                </div>
+                <div id="btMappingFields" style="display:flex; flex-direction:column; gap:6px;"></div>
+                <div style="display:flex; gap:6px; margin-top:8px;">
+                    <button id="addMappingFieldBtn" class="btn btn-secondary" style="flex:1; padding:6px; font-size:0.75rem; margin-bottom:0; border-style:dashed;">＋ 添加字段</button>
+                </div>
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                    <button id="saveFieldMappingBtn" class="btn btn-secondary" style="flex:1; padding:6px; font-size:0.75rem; margin-bottom:0;">💾 保存映射</button>
+                    <button id="importMappingBtn" class="btn btn-secondary" style="flex:1; padding:6px; font-size:0.75rem; margin-bottom:0;">📥 导入</button>
+                    <button id="exportMappingBtn" class="btn btn-secondary" style="flex:1; padding:6px; font-size:0.75rem; margin-bottom:0;">📤 导出</button>
+                    <button id="resetFieldMappingBtn" class="btn btn-secondary" style="flex:1; padding:6px; font-size:0.75rem; margin-bottom:0;">↺ 重置</button>
+                </div>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label for="btCopies" style="font-size:0.82rem; color:var(--text-muted);">打印份数</label>
+                <input type="number" id="btCopies" value="1" min="1" max="99" style="width:80px; margin-top:4px; padding:8px; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
+            </div>
+            <button class="btn btn-primary" style="width:100%;" id="btPrintBtn">
+                ▦ 发送至 BarTender 打印
+            </button>
+            <button class="btn btn-success" style="width:100%; margin-top:8px;" id="btBatchBtn" title="将批量表中的全部数据发送至 BarTender">
+                📦 批量发送全部数据
+            </button>
+            <div id="btPrintStatus" style="margin-top:8px; font-size:0.8rem; text-align:center; min-height:20px;"></div>
+        </div>
+
+        <!-- 打印历史 -->
+        <div class="card">
+            <div class="card-title">📜 发送记录</div>
+            <div id="printLogList" style="max-height:200px; overflow-y:auto;">
+                <div class="empty-tip">暂无记录</div>
+            </div>
+            <div style="margin-top:10px;">
+                <button id="clearPrintLogBtn" class="btn btn-secondary" style="width:100%; font-size:0.8rem; padding:8px;">清空记录</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="zoom-overlay" id="zoomOverlay"></div>
+
+<div id="tabImportOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:3000; align-items:center; justify-content:center;">
+    <div style="background:var(--surface); border-radius:12px; padding:24px; max-width:500px; width:90%; max-height:70vh; overflow-y:auto; box-shadow:0 10px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <span style="font-size:1rem; font-weight:700; color:var(--text-main);">📋 选择要继承的标签页</span>
+            <button id="closeTabImportBtn" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted);">✕</button>
+        </div>
+        <div id="tabImportList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+            <button id="closeTabImportCancelBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.82rem; margin-bottom:0;">取消</button>
+            <button class="btn btn-primary" style="flex:2; padding:8px; font-size:0.82rem; margin-bottom:0;" id="tabImportConfirmBtn" disabled>📥 继承全部内容</button>
+        </div>
+    </div>
+</div>
+
+<div id="fieldSettingsOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:3000; align-items:center; justify-content:center;">
+    <div style="background:var(--surface); border-radius:12px; padding:24px; max-width:750px; width:95%; max-height:85vh; overflow-y:auto; box-shadow:0 10px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <span style="font-size:1rem; font-weight:700; color:var(--text-main);">⚙ 字段设置</span>
+            <button id="closeFieldSettingsBtn" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">✕</button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+            <button id="addFieldDefBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.78rem; margin-bottom:0;">＋ 添加字段</button>
+            <button id="resetFieldDefsBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.78rem; margin-bottom:0;">↺ 重置默认</button>
+            <button id="importFieldDefsBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.78rem; margin-bottom:0;">📥 导入配置</button>
+            <button id="exportFieldDefsBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.78rem; margin-bottom:0;">📤 导出配置</button>
+            <button id="showTabImportBtn" class="btn btn-secondary" style="flex:1; padding:8px; font-size:0.78rem; margin-bottom:0; color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff;">📋 继承标签页</button>
+        </div>
+        <div id="fieldDefList" style="max-height:300px; overflow-y:auto;"></div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">▦ 二维码组合格式</span>
+                <span style="font-size:0.72rem; color:var(--text-muted);">用 {key} 引用字段值</span>
+            </div>
+            <textarea id="qrFormatInput" rows="3" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem; font-family:monospace; resize:vertical; min-height:60px;"></textarea>
+            <div id="qrFormatHint" style="margin-top:4px; font-size:0.72rem; color:var(--text-muted);"></div>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+                <button id="resetQrFormatBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">↺ 重置默认</button>
+                <button id="previewQrFormatBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">👁 预览效果</button>
+                <button id="importQrFormatBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">📥</button>
+                <button id="exportQrFormatBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">📤</button>
+            </div>
+        </div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">🔍 型号→规格 查询表</span>
+                <span>
+                    <button id="importLookupBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">📥</button>
+                    <button id="exportLookupBtn" class="btn btn-secondary" style="flex:0; padding:4px 8px; font-size:0.72rem; margin-bottom:0;">📤</button>
+                </span>
+                <span style="font-size:0.72rem; color:var(--text-muted);">{型号: {规格1: 值, 规格2: 值}}</span>
+            </div>
+            <textarea id="lookupInput" rows="6" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-size:0.78rem; font-family:monospace; resize:vertical; min-height:80px;" placeholder='{"key":"model","data":{"ABC-123":{"spec1":"100mm","spec2":"50mm"},"XYZ-789":{"spec1":"200mm","spec2":"80mm"}}}'></textarea>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">打印时如果规格字段为空，自动按型号补齐</div>
+        </div>
+        <div style="margin-top:14px; text-align:right;">
+            <button id="closeFieldSettingsDoneBtn" class="btn btn-primary" style="padding:8px 24px; font-size:0.85rem; margin-bottom:0; flex:none;">✓ 完成</button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="src/js/app.js"></script>
+</body>
+</html>
