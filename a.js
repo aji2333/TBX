@@ -719,7 +719,11 @@ function calcMaxForce(){
     }
     const g = 9.81;
     const kua = n < 31 ? 150 : 300
-    const maxForce = delta * parseFloat(a) * parseFloat(a) * parseFloat(b) * parseFloat(n) * parseFloat(n) * g / kua;
+    //const maxForce = delta * parseFloat(a) * parseFloat(a) * parseFloat(b) * parseFloat(n) * parseFloat(n) * g / kua;
+	const maxForce = new Decimal(delta)
+    .mul(a).mul(a).mul(b).mul(n).mul(n).mul(g)
+    .div(kua)
+    .toNumber();
 
     uli.value = maxForce;
 }
