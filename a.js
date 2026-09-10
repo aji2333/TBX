@@ -704,7 +704,7 @@ function calcMaxForce(){
         if (!row){
             return null;
         }
-        if (rp > 230){
+        if (rp >= 230){
             return row.val_gt_230;
         } else if (rp > 180){
             return row.val_180_to_230;
